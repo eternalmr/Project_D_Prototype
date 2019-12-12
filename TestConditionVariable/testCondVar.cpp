@@ -17,6 +17,7 @@ bool more_data_to_prepare(std::queue<data_chunk> q) {
 data_chunk prepare_data(std::queue<data_chunk> &q) {
 	data_chunk qf = q.front();
 	q.pop();
+	std::cout << "put " << qf << " into queue" << std::endl;
 	return qf;
 }
 
@@ -28,27 +29,21 @@ bool is_last_chunk() {
 	return data_queue.empty();
 }
 
-void data_preparation_thread(std::queue<data_chunk> &q)
+void data_preparation(std::queue<data_chunk> q)
 {
 	while (more_data_to_prepare(q))
 	{
 		data_chunk const data = prepare_data(q);
-		std::lock_guard<std::mutex> lk(mut);
 		data_queue.push(data);  // 2
-		data_cond.notify_one();  // 3
 	}
 }
 
-void data_processing_thread()
+void data_processing()
 {
 	while (true)
 	{
-		std::unique_lock<std::mutex> lk(mut);  // 4
-		data_cond.wait(
-			lk, [] {return !data_queue.empty(); });  // 5
 		data_chunk data = data_queue.front();
 		data_queue.pop();
-		lk.unlock();  // 6
 		process(data);
 		if (is_last_chunk())
 			break;
@@ -63,11 +58,8 @@ int main()
 		myData.push(i);
 	}
 
-	std::thread t1(data_preparation_thread,myData);
-	std::thread t2(data_processing_thread);
-
-	t1.join();
-	t2.join();
+	data_preparation(myData);
+	data_processing();
 
 	system("pause");
 	return 0;
