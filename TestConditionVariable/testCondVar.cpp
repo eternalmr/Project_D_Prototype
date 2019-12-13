@@ -1,66 +1,61 @@
-#include <mutex>
-#include <thread>
-#include <queue>
-#include <iostream>
+#include<iostream>
+#include<thread>
+#include<mutex>
+#include<list>
+using namespace std;
 
-#define data_chunk int
-
-std::mutex mut;
-std::queue<data_chunk> data_queue;  // 1
-std::condition_variable data_cond;
-
-
-bool more_data_to_prepare(std::queue<data_chunk> q) {
-	return q.size() > 0;
-}
-
-data_chunk prepare_data(std::queue<data_chunk> &q) {
-	data_chunk qf = q.front();
-	q.pop();
-	std::cout << "put " << qf << " into queue" << std::endl;
-	return qf;
-}
-
-void process(data_chunk data) {
-	std::cout << data << std::endl;
-}
-
-bool is_last_chunk() {
-	return data_queue.empty();
-}
-
-void data_preparation(std::queue<data_chunk> q)
+class MsgManage
 {
-	while (more_data_to_prepare(q))
+public:
+	MsgManage() {}
+	~MsgManage() {}
+	void InMsg()
 	{
-		data_chunk const data = prepare_data(q);
-		data_queue.push(data);  // 2
+		for (int i = 0; i < 10; i++)
+		{
+			
+			std::unique_lock<std::mutex> guard(myMutex);
+			cout << "插入元素: " << i << endl;
+			myList.push_back(i);
+			//把被阻塞在wait()的线程唤醒
+			condition.notify_one();
+		}
 	}
-}
 
-void data_processing()
-{
-	while (true)
+	void OutMsg()
 	{
-		data_chunk data = data_queue.front();
-		data_queue.pop();
-		process(data);
-		if (is_last_chunk())
-			break;
+		int num;
+		while (true)
+		{
+			std::unique_lock<std::mutex> guard(myMutex);
+			//列表为空时，对互斥量解锁，程序阻塞，等待被唤醒。
+			//列表不为空时，程序继续执行。
+			condition.wait(guard, [this] {
+				if (!myList.empty())
+					return true;
+				return false;
+			});
+			//程序执行到这里，列表不为空，且互斥量已被加锁
+			num = myList.front();
+			myList.pop_front();
+			cout << "移除元素: " << num << endl;
+			//解锁，避免互斥量被锁住太长时间
+			guard.unlock();
+			//程序继续执行其它耗时代码
+		}
 	}
-}
+private:
+	list<int> myList;
+	mutex myMutex;
+	condition_variable condition;  //条件变量对象和互斥量配合使用
+};
 
 int main()
 {
-	std::queue<data_chunk> myData;
-
-	for (int i = 0; i < 10; i++){
-		myData.push(i);
-	}
-
-	data_preparation(myData);
-	data_processing();
-
-	system("pause");
+	MsgManage manage;
+	thread outMsg(&MsgManage::OutMsg, &manage);
+	thread inMsg(&MsgManage::InMsg, &manage);
+	inMsg.join();
+	outMsg.join();
 	return 0;
 }
