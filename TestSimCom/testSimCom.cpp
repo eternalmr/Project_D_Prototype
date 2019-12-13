@@ -7,10 +7,11 @@
 
 #include "zhelpers.hpp"
 #include <thread>
+#include <fstream>
 
 //  simulation thread
-void *simu(void *arg) {
-
+void *simu(void *arg)
+{
 	zmq::context_t * context = static_cast<zmq::context_t*>(arg);
 
 	//  Bind to inproc: endpoint, then start upstream thread
@@ -22,22 +23,34 @@ void *simu(void *arg) {
 	std::cout << "simu: receive signal: " << str << " from main" << std::endl;
 
 	//  Do some work
-	Sleep(1000);
 	std::cout << "Do some work" << std::endl;
+
+	std::ofstream result("result.txt");
+	if (result.is_open()) {
+		result << "simulation start\n";
+		for (int i = 0; i < 5; i++) {//simulation process
+			time_t currentTime = time(0);
+			struct tm *t = localtime(&currentTime);
+			result << t->tm_hour << ":" << t->tm_min << ":" << t->tm_sec << std::endl;//output current time
+			Sleep(1000);//do some work
+		}
+		result << "simulation finished\n";
+	}
 
 	// Reply to main
 	s_send(receiver, "work finished!");
+
+	receiver.close();
 
 	return (NULL);
 }
 
 //  Main program starts simulation and send signal to simulation
-
-int main() {
-
+int main()
+{
 	zmq::context_t context(1);
 
-	//  Bind to inproc: endpoint, then start upstream thread
+	//  Bind to inproc: simu, then start simu thread
 	zmq::socket_t sender(context, ZMQ_REQ);
 	sender.bind("inproc://simu");
 
@@ -52,6 +65,9 @@ int main() {
 	std::cout << "main: receive signal: " << str << " from simu" << std::endl;
 
 	t1.join();
+
+	sender.close();
+	context.close();
 
 	system("pause");
 	return 0;
