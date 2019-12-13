@@ -6,11 +6,10 @@
 #pragma warning(disable:4996)
 
 #include "zhelpers.hpp"
-#include <pthread.h>
+#include <thread>
 //#include <iostream>
 
 //  Step 1 pushes one message to step 2
-
 void *step1(void *arg) {
 
 	zmq::context_t * context = static_cast<zmq::context_t*>(arg);
@@ -26,7 +25,6 @@ void *step1(void *arg) {
 }
 
 //  Step 2 relays the signal to step 3
-
 void *step2(void *arg){
 
 	zmq::context_t * context = static_cast<zmq::context_t*>(arg);
@@ -35,8 +33,7 @@ void *step2(void *arg){
 	zmq::socket_t receiver(*context, ZMQ_PAIR);
 	receiver.bind("inproc://step2");
 
-	pthread_t thread;
-	pthread_create(&thread, NULL, step1, context);
+	std::thread t2(step1, context);
 
 	//  Wait for signal
 	std::string str = s_recv(receiver);
@@ -47,6 +44,8 @@ void *step2(void *arg){
 	sender.connect("inproc://step3");
 	std::cout << "step2: send signal from step2" << std::endl;
 	s_send(sender, "step2");
+
+	t2.join();
 
 	return (NULL);
 }
@@ -61,14 +60,15 @@ int main() {
 	zmq::socket_t receiver(context, ZMQ_PAIR);
 	receiver.bind("inproc://step3");
 
-	pthread_t thread;
-	pthread_create(&thread, NULL, step2, &context);
+	std::thread t1(step2, &context);
 
 	//  Wait for signal
 	std::string str = s_recv(receiver);
 	std::cout << "step3: receive signal " << str << " from step2" << std::endl;
 
 	std::cout << "Test successful!" << std::endl;
+
+	t1.join();
 
 	system("pause");
 	return 0;
