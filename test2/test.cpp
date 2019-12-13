@@ -1,5 +1,5 @@
-//  Least-recently used (LRU) queue device
-//  Clients and workers are shown here in-process
+//
+//  Multithreaded relay in C++
 //
 // Olivier Chamoux <olivier.chamoux@fr.thalesgroup.com>
 
@@ -7,176 +7,68 @@
 
 #include "zhelpers.hpp"
 #include <pthread.h>
-#include <queue>
+//#include <iostream>
 
-//  Basic request-reply client using REQ socket
-//
-static void *
-client_thread(void *arg) {
-	zmq::context_t context(1);
-	zmq::socket_t client(context, ZMQ_REQ);
+//  Step 1 pushes one message to step 2
 
-#if (defined (WIN32))
-	s_set_id(client, (intptr_t)arg);
-	//client.connect("tcp://localhost:5672"); // frontend
-	client.connect("inproc://frontend");
-#else
-	s_set_id(client); // Set a printable identity
-	client.connect("ipc://frontend.ipc");
-#endif
+void *step1(void *arg) {
 
-	//  Send request, get reply
-	s_send(client, "HELLO");
-	std::string reply = s_recv(client);
-	std::cout << "Client: " << reply << std::endl;
+	zmq::context_t * context = static_cast<zmq::context_t*>(arg);
+
+	//  Signal downstream to step 2
+	zmq::socket_t sender(*context, ZMQ_PAIR);
+	sender.connect("inproc://step2");
+
+	std::cout << "step1: send signal from step1" << std::endl;
+	s_send(sender, "step1");
+
 	return (NULL);
 }
 
-//  Worker using REQ socket to do LRU routing
-//
-static void *
-worker_thread(void *arg) {
-	zmq::context_t context(1);
-	zmq::socket_t worker(context, ZMQ_REQ);
+//  Step 2 relays the signal to step 3
 
-#if (defined (WIN32))
-	s_set_id(worker, (intptr_t)arg);
-	//worker.connect("tcp://localhost:5673"); // backend
-	worker.connect("inproc://backend");
-#else
-	s_set_id(worker);
-	worker.connect("ipc://backend.ipc");
-#endif
+void *step2(void *arg){
 
-	//  Tell backend we're ready for work
-	s_send(worker, "READY");
+	zmq::context_t * context = static_cast<zmq::context_t*>(arg);
 
-	while (1) {
-		//  Read and save all frames until we get an empty frame
-		//  In this example there is only 1 but it could be more
-		std::string address = s_recv(worker);
-		{
-			std::string empty = s_recv(worker);
-			assert(empty.size() == 0);
-		}
+	//  Bind to inproc: endpoint, then start upstream thread
+	zmq::socket_t receiver(*context, ZMQ_PAIR);
+	receiver.bind("inproc://step2");
 
-		//  Get request, send reply
-		std::string request = s_recv(worker);
-		std::cout << "Worker: " << request << std::endl;
+	pthread_t thread;
+	pthread_create(&thread, NULL, step1, context);
 
-		s_sendmore(worker, address);
-		s_sendmore(worker, "");
-		s_send(worker, "OK");
-	}
+	//  Wait for signal
+	std::string str = s_recv(receiver);
+	std::cout << "step2: receive signal "<< str <<" from step1" << std::endl;
+
+	//  Signal downstream to step 3
+	zmq::socket_t sender(*context, ZMQ_PAIR);
+	sender.connect("inproc://step3");
+	std::cout << "step2: send signal from step2" << std::endl;
+	s_send(sender, "step2");
+
 	return (NULL);
 }
 
-int main(int argc, char *argv[])
-{
+//  Main program starts steps 1 and 2 and acts as step 3
 
-	//  Prepare our context and sockets
+int main() {
+
 	zmq::context_t context(1);
-	zmq::socket_t frontend(context, ZMQ_ROUTER);
-	zmq::socket_t backend(context, ZMQ_ROUTER);
 
-#if (defined (WIN32))
-	//frontend.bind("tcp://*:5672"); // frontend
-	frontend.bind("inproc://frontend");
-	//backend.bind("tcp://*:5673"); // backend
-	backend.bind("inproc://backend"); // backend
-#else
-	frontend.bind("ipc://frontend.ipc");
-	backend.bind("ipc://backend.ipc");
-#endif
+	//  Bind to inproc: endpoint, then start upstream thread
+	zmq::socket_t receiver(context, ZMQ_PAIR);
+	receiver.bind("inproc://step3");
 
-	int client_nbr;
-	for (client_nbr = 0; client_nbr < 10; client_nbr++) {
-		pthread_t client;
-		pthread_create(&client, NULL, client_thread, (void *)(intptr_t)client_nbr);
-	}
-	int worker_nbr;
-	for (worker_nbr = 0; worker_nbr < 3; worker_nbr++) {
-		pthread_t worker;
-		pthread_create(&worker, NULL, worker_thread, (void *)(intptr_t)worker_nbr);
-	}
-	//  Logic of LRU loop
-	//  - Poll backend always, frontend only if 1+ worker ready
-	//  - If worker replies, queue worker as ready and forward reply
-	//    to client if necessary
-	//  - If client requests, pop next worker and send request to it
-	//
-	//  A very simple queue structure with known max size
-	std::queue<std::string> worker_queue;
+	pthread_t thread;
+	pthread_create(&thread, NULL, step2, &context);
 
-	while (1) {
+	//  Wait for signal
+	std::string str = s_recv(receiver);
+	std::cout << "step3: receive signal " << str << " from step2" << std::endl;
 
-		//  Initialize poll set
-		zmq::pollitem_t items[] = {
-			//  Always poll for worker activity on backend
-				{ backend, 0, ZMQ_POLLIN, 0 },
-				//  Poll front-end only if we have available workers
-				{ frontend, 0, ZMQ_POLLIN, 0 }
-		};
-		if (worker_queue.size())
-			zmq::poll(&items[0], 2, -1);
-		else
-			zmq::poll(&items[0], 1, -1);
-
-		//  Handle worker activity on backend
-		if (items[0].revents & ZMQ_POLLIN) {
-
-			//  Queue worker address for LRU routing
-			worker_queue.push(s_recv(backend));
-
-			{
-				//  Second frame is empty
-				std::string empty = s_recv(backend);
-				assert(empty.size() == 0);
-			}
-
-			//  Third frame is READY or else a client reply address
-			std::string client_addr = s_recv(backend);
-
-			//  If client reply, send rest back to frontend
-			if (client_addr.compare("READY") != 0) {
-
-				{
-					std::string empty = s_recv(backend);
-					assert(empty.size() == 0);
-				}
-
-				std::string reply = s_recv(backend);
-				s_sendmore(frontend, client_addr);
-				s_sendmore(frontend, "");
-				s_send(frontend, reply);
-
-				if (--client_nbr == 0)
-					break;
-			}
-		}
-		if (items[1].revents & ZMQ_POLLIN) {
-
-			//  Now get next client request, route to LRU worker
-			//  Client request is [address][empty][request]
-			std::string client_addr = s_recv(frontend);
-
-			{
-				std::string empty = s_recv(frontend);
-				assert(empty.size() == 0);
-			}
-
-			std::string request = s_recv(frontend);
-
-			std::string worker_addr = worker_queue.front();//worker_queue [0];
-			worker_queue.pop();
-
-			s_sendmore(backend, worker_addr);
-			s_sendmore(backend, "");
-			s_sendmore(backend, client_addr);
-			s_sendmore(backend, "");
-			s_send(backend, request);
-		}
-	}
+	std::cout << "Test successful!" << std::endl;
 
 	system("pause");
 	return 0;
