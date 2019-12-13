@@ -18,7 +18,8 @@ client_thread(void *arg) {
 
 #if (defined (WIN32))
 	s_set_id(client, (intptr_t)arg);
-	client.connect("tcp://localhost:5672"); // frontend
+	//client.connect("tcp://localhost:5672"); // frontend
+	client.connect("inproc://frontend");
 #else
 	s_set_id(client); // Set a printable identity
 	client.connect("ipc://frontend.ipc");
@@ -40,7 +41,8 @@ worker_thread(void *arg) {
 
 #if (defined (WIN32))
 	s_set_id(worker, (intptr_t)arg);
-	worker.connect("tcp://localhost:5673"); // backend
+	//worker.connect("tcp://localhost:5673"); // backend
+	worker.connect("inproc://backend");
 #else
 	s_set_id(worker);
 	worker.connect("ipc://backend.ipc");
@@ -78,8 +80,10 @@ int main(int argc, char *argv[])
 	zmq::socket_t backend(context, ZMQ_ROUTER);
 
 #if (defined (WIN32))
-	frontend.bind("tcp://*:5672"); // frontend
-	backend.bind("tcp://*:5673"); // backend
+	//frontend.bind("tcp://*:5672"); // frontend
+	frontend.bind("inproc://frontend");
+	//backend.bind("tcp://*:5673"); // backend
+	backend.bind("inproc://backend"); // backend
 #else
 	frontend.bind("ipc://frontend.ipc");
 	backend.bind("ipc://backend.ipc");
