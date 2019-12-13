@@ -1,74 +1,84 @@
-//
-//  Multithreaded relay in C++
-//
-// Olivier Chamoux <olivier.chamoux@fr.thalesgroup.com>
-
 #pragma warning(disable:4996)
 
 #include "zhelpers.hpp"
 #include <thread>
-//#include <iostream>
+#include <fstream>
+#include<mutex>
 
-//  Step 1 pushes one message to step 2
-void *step1(void *arg) {
+std::mutex mut;
+std::condition_variable sim_cond;
+std::condition_variable com_cond;
+bool simFlag = false;
+bool comFlag = false;
 
-	zmq::context_t * context = static_cast<zmq::context_t*>(arg);
 
-	//  Signal downstream to step 2
-	zmq::socket_t sender(*context, ZMQ_PAIR);
-	sender.connect("inproc://step2");
+void simulation() {
+	std::unique_lock<std::mutex> lck(mut);
 
-	std::cout << "step1: send signal from step1" << std::endl;
-	s_send(sender, "step1");
-
-	return (NULL);
-}
-
-//  Step 2 relays the signal to step 3
-void *step2(void *arg){
-
-	zmq::context_t * context = static_cast<zmq::context_t*>(arg);
-
-	//  Bind to inproc: endpoint, then start upstream thread
-	zmq::socket_t receiver(*context, ZMQ_PAIR);
-	receiver.bind("inproc://step2");
-
-	std::thread t2(step1, context);
-
-	//  Wait for signal
-	std::string str = s_recv(receiver);
-	std::cout << "step2: receive signal "<< str <<" from step1" << std::endl;
-
-	//  Signal downstream to step 3
-	zmq::socket_t sender(*context, ZMQ_PAIR);
-	sender.connect("inproc://step3");
-	std::cout << "step2: send signal from step2" << std::endl;
-	s_send(sender, "step2");
-
-	t2.join();
-
-	return (NULL);
-}
-
-//  Main program starts steps 1 and 2 and acts as step 3
-
-int main() {
+	std::cout << "this is simulation thread" << std::endl;//
+	std::ofstream result("result.txt");
 
 	zmq::context_t context(1);
+	zmq::socket_t receiver(context, ZMQ_REQ);
+	receiver.connect("tcp://localhost:5555");
 
-	//  Bind to inproc: endpoint, then start upstream thread
-	zmq::socket_t receiver(context, ZMQ_PAIR);
-	receiver.bind("inproc://step3");
+	s_send(receiver, "I'm ready");
+	simFlag = true;
+	sim_cond.notify_one();//通知communication线程解锁
 
-	std::thread t1(step2, &context);
+	com_cond.wait(
+		lck, [] {return comFlag; });
 
-	//  Wait for signal
-	std::string str = s_recv(receiver);
-	std::cout << "step3: receive signal " << str << " from step2" << std::endl;
+	std::string command = s_recv(receiver);
+	std::cout << command << std::endl;
 
-	std::cout << "Test successful!" << std::endl;
+	//写输出
+	if (result.is_open()) {
+
+		result << "simulation start\n";
+		for (int i = 0; i < 5; i++) {//simulation process
+			time_t currentTime = time(0);
+			struct tm *t = localtime(&currentTime);
+			result << t->tm_hour << ":" << t->tm_min << ":" << t->tm_sec << std::endl;//output current time
+			Sleep(1000);//do some work
+		}
+		result << "simulation finished\n";
+	}
+
+	receiver.close();
+	context.close();
+	result.close();
+}
+
+void communication() {
+	std::cout << "this is communication thread" << std::endl;//
+
+	zmq::context_t context(1);
+	zmq::socket_t sender(context, ZMQ_REP);
+	sender.bind("tcp://localhost:5555");
+
+	std::unique_lock<std::mutex> lck(mut);
+	sim_cond.wait(
+		lck, [] {return simFlag; });//等待REQ发送ready信号
+	s_recv(sender);
+
+	s_send(sender, "start");
+	comFlag = true;
+	com_cond.notify_one();
+
+	sender.close();
+	context.close();
+}
+
+int main()
+{
+	std::thread t1(simulation);
+	std::thread t2(communication);
+
+	std::cout << "this is main thread" << std::endl;//
 
 	t1.join();
+	t2.join();
 
 	system("pause");
 	return 0;
