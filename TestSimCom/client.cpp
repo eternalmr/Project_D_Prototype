@@ -23,7 +23,7 @@ void execute_start_command(zmq::socket_t &);
 //  Main program starts simulation and send signal to simulation
 int main()
 {
-	//*************************** 1. initialize simulation ************************************
+	//*************************** 1. initialize simulation *********************************
 	zmq::context_t context(1);
 
 	//// Connect to server(留接口，暂时不用)
@@ -34,11 +34,9 @@ int main()
 	//  Bind to inproc: simu, then start simu thread
 	zmq::socket_t sender(context, ZMQ_REQ);
 	sender.bind("inproc://simu");
-
-	// Start simu thread
 	std::thread t1(simu, &context);
 
-	//*************************** 2. execute command from server ******************************
+	//*************************** 2. execute command from server ***************************
 	std::string command = receive_from_server();
 
 	if (command == "start") {
@@ -58,8 +56,8 @@ int main()
 		cout << "unknown command" << endl;
 	}
 
-	//*************************** 3. exit simulation ****************************************
-	t1.join();
+	//*************************** 3. exit simulation ***************************************
+	t1.join();//waiting for the simulation finish
 
 	sender.close();
 	context.close();
@@ -68,17 +66,10 @@ int main()
 	return 0;
 }
 
-void initialize()
-{
-
-}
-
 void execute_start_command(zmq::socket_t &sender)
 {
-	// Send start signal
-	s_send(sender, "start");
-	// Receive feedback signal
-	std::string str = s_recv(sender);
+	s_send(sender, "start");            // Send start signal
+	std::string str = s_recv(sender);   // Receive feedback signal
 	std::cout << "main: receive signal: " << str << " from simu" << std::endl;
 }
 
