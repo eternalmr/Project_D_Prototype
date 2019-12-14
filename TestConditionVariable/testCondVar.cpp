@@ -1,61 +1,55 @@
-#include<iostream>
-#include<thread>
-#include<mutex>
-#include<list>
-using namespace std;
+/*
+	Multithreaded Hello World server in C
+*/
 
-class MsgManage
+#include <pthread.h>
+#include <unistd.h>
+#include <cassert>
+#include <string>
+#include <iostream>
+#include <zmq.hpp>
+
+void *worker_routine(void *arg)
 {
-public:
-	MsgManage() {}
-	~MsgManage() {}
-	void InMsg()
-	{
-		for (int i = 0; i < 10; i++)
-		{
-			
-			std::unique_lock<std::mutex> guard(myMutex);
-			cout << "插入元素: " << i << endl;
-			myList.push_back(i);
-			//把被阻塞在wait()的线程唤醒
-			condition.notify_one();
-		}
-	}
+	zmq::context_t *context = (zmq::context_t *) arg;
 
-	void OutMsg()
-	{
-		int num;
-		while (true)
-		{
-			std::unique_lock<std::mutex> guard(myMutex);
-			//列表为空时，对互斥量解锁，程序阻塞，等待被唤醒。
-			//列表不为空时，程序继续执行。
-			condition.wait(guard, [this] {
-				if (!myList.empty())
-					return true;
-				return false;
-			});
-			//程序执行到这里，列表不为空，且互斥量已被加锁
-			num = myList.front();
-			myList.pop_front();
-			cout << "移除元素: " << num << endl;
-			//解锁，避免互斥量被锁住太长时间
-			guard.unlock();
-			//程序继续执行其它耗时代码
-		}
+	zmq::socket_t socket(*context, ZMQ_REP);
+	socket.connect("inproc://workers");
+
+	while (true) {
+		//  Wait for next request from client
+		zmq::message_t request;
+		socket.recv(&request);
+		std::cout << "Received request: [" << (char*)request.data() << "]" << std::endl;
+
+		//  Do some 'work'
+		sleep(1);
+
+		//  Send reply back to client
+		zmq::message_t reply(6);
+		memcpy((void *)reply.data(), "World", 6);
+		socket.send(reply);
 	}
-private:
-	list<int> myList;
-	mutex myMutex;
-	condition_variable condition;  //条件变量对象和互斥量配合使用
-};
+	return (NULL);
+}
 
 int main()
 {
-	MsgManage manage;
-	thread outMsg(&MsgManage::OutMsg, &manage);
-	thread inMsg(&MsgManage::InMsg, &manage);
-	inMsg.join();
-	outMsg.join();
+	//  Prepare our context and sockets
+	zmq::context_t context(1);
+	zmq::socket_t clients(context, ZMQ_ROUTER);
+	clients.bind("tcp://*:5555");
+	zmq::socket_t workers(context, ZMQ_DEALER);
+	workers.bind("inproc://workers");
+
+	//  Launch pool of worker threads
+	for (int thread_nbr = 0; thread_nbr != 5; thread_nbr++) {
+		pthread_t worker;
+		pthread_create(&worker, NULL, worker_routine, (void *)&context);
+	}
+	//  Connect work threads to client threads via a queue
+	zmq::proxy(static_cast<void*>(clients),
+		static_cast<void*>(workers),
+		nullptr);
 	return 0;
 }

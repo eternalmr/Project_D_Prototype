@@ -9,7 +9,7 @@
 #include <thread>
 #include <fstream>
 
-//  simulation thread
+// simulation thread
 void *simu(void *arg)
 {
 	zmq::context_t * context = static_cast<zmq::context_t*>(arg);
@@ -29,6 +29,11 @@ void *simu(void *arg)
 	if (result.is_open()) {
 		result << "simulation start\n";
 		for (int i = 0; i < 5; i++) {//simulation process
+			if (pause_flag == 1)
+			{
+				sleep(1 second);
+				continue;		
+			}
 			time_t currentTime = time(0);
 			struct tm *t = localtime(&currentTime);
 			result << t->tm_hour << ":" << t->tm_min << ":" << t->tm_sec << std::endl;//output current time
@@ -46,6 +51,7 @@ void *simu(void *arg)
 }
 
 //  Main program starts simulation and send signal to simulation
+pauseflag = 0
 int main()
 {
 	zmq::context_t context(1);
@@ -56,15 +62,29 @@ int main()
 
 	// Start simu thread
 	std::thread t1(simu, &context);
-
+	byte command = recieve_from_server();
+	if (command==start) {
+		
+		t1.join();
+	}
+	else if (command == stop)
+	{
+		t1.kill()
+	}
+	else if (command = heartbeat)
+	{
+		reply()
+	}
+	else if (command == pause)
+	{
+		pauseflag=1
+	}
 	// Send start signal
 	s_send(sender, "start");
 
 	// Receive feedback signal
 	std::string str = s_recv(sender);
 	std::cout << "main: receive signal: " << str << " from simu" << std::endl;
-
-	t1.join();
 
 	sender.close();
 	context.close();
