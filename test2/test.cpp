@@ -1,83 +1,104 @@
-// this_thread::sleep_for example
-#pragma warning(disable:4996)
+#include <iostream>
+#include <windows.h>
+#include <thread>
+#include <assert.h>
 
-#include <iostream>       // std::cout
-#include <iomanip>        // std::put_time
-#include <thread>         // std::this_thread::sleep_until
-#include <chrono>         // std::chrono::system_clock
-#include <ctime>          // std::time_t, std::tm, std::localtime, std::mktime
+using std::endl;
+using std::cout;
+
+enum signal_set {start = 111, stop = 222, pause = 333};
+
+int start_flag = 1;
+int pause_flag = 0;
+int stop_flag = 0;
+
+int sim(int arg);
+signal_set listen_from_server();
+bool is_irrelevant(signal_set);
 
 int main()
-{
-	using std::chrono::system_clock;
-	std::time_t tt = system_clock::to_time_t(system_clock::now());
+{	
+	std::thread t1(sim, 5);
+	signal_set signal;
 
-	struct std::tm * ptm = std::localtime(&tt);
-	std::cout << "Current time: " << std::put_time(ptm, "%X") << '\n';
+	while(true){
+		signal = listen_from_server();
 
-	std::cout << "Waiting for the next minute to begin...\n";
-	++ptm->tm_min; ptm->tm_sec = 0;
-	//std::this_thread::sleep_until(system_clock::from_time_t(mktime(ptm)));
-	std::this_thread::sleep_for(std::chrono::minutes(1));
+		assert(!(start_flag == 0 && pause_flag == 1));//impossible situation
 
-	std::cout << std::put_time(ptm, "%X") << " reached!\n";
+		if( is_irrelevant(signal)) continue;
+
+		switch(signal){
+			case (start):{
+				if(start_flag == 0 && pause_flag == 0){
+					start_flag = 1;
+					cout<<"execute start command"<<endl;
+				}else if(start_flag == 1 && pause_flag ==1){
+					pause_flag = 0;
+					cout<<"continue simulation"<<endl;
+				}else{
+					cout<<"impossible to get here"<<endl;
+				}
+				break;
+			}
+			case (pause):{
+				if(start_flag == 1 && pause_flag ==0){
+					pause_flag == 1;
+					cout<<"pause simulation"<<endl;
+				}else{
+					cout<<"impossible to get here"<<endl;
+				}
+				break;
+			}
+			case (stop):{
+				if(start_flag == 1){
+					start_flag = 0;
+					pause_flag = 0;
+					stop_flag = 1;
+					cout<<"stop simulation"<<endl;
+				}else{
+					cout<<"impossible to get here"<<endl;
+				}
+				break;
+			}
+			default:
+				cout<<"unknown command"<<endl;
+		}
+
+		if (stop_flag) break;
+	}
+
+	t1.join();
 
 	system("pause");
 	return 0;
 }
 
+bool is_irrelevant(signal_set signal)
+{
+	if((signal == start) && (start_flag == 1 && pause_flag ==0)) //已开始，未暂停
+		return true;
+	if((signal == pause) && (start_flag == 0 && pause_flag == 0))//未开始
+		return true;
+	if((signal == pause) && (start_flag == 1 && pause_flag == 1))//已开始，已暂停
+		return true;
+	if((signal == stop) && (start_flag == 0 && pause_flag == 0))//未开始
+		return true;
+	return false;
+}
 
-//#pragma warning(disable:4996)
-//
-//#include "zhelpers.hpp"
-//#include <thread>
-//#include <fstream>
-//#include<mutex>
-//
-//#define start 111
-//#define stop  222
-//#define pause 333
-//
-//int listen_signal_from_main() {
-//	return start;
-//}
-//
-//void simulation() {
-//	int signal;
-//	int count = 0;
-//	bool alreadyStarted = false;
-//	std::fstream result("result.txt");
-//	
-//
-//	while (count < 5) {
-//		signal = listen_signal_from_main();
-//
-//		if (signal == start) { alreadyStarted = true; }
-//		if (signal == stop)  { break; }//stop simulation
-//
-//		if (alreadyStarted) {//start simulation loop
-//			//simulation loop
-//			if (result.is_open()) {
-//				time_t currentTime = time(0);
-//				struct tm *t = localtime(&currentTime);
-//				result << t->tm_hour << ":" << t->tm_min << ":" << t->tm_sec << std::endl;//output current time
-//				Sleep(1000);//do some work
-//			}
-//			count++;
-//		}
-//	}
-//
-//	result.close();
-//}
-//
-//int main()
-//{
-//	std::thread t1(simulation);
-//
-//	std::cout << "this is main thread" << std::endl;//
-//
-//	t1.join();
-//
-//	system("pause");
-//	return 0;
-//}
+int sim(int arg)
+{
+	int result = arg;
+	for (int i = 0; i < 10; i++) {
+		result++;
+		cout<< "result: "<<result<<endl;
+		Sleep(1000);
+	}
+	return result;
+}
+
+signal_set listen_from_server()
+{
+	return stop;
+}

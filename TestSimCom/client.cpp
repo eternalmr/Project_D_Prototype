@@ -37,24 +37,28 @@ int main()
 	std::thread t1(simu, &context);
 
 	//*************************** 2. execute command from server ***************************
-	std::string command = receive_from_server();
+	 
+	while (true) {
+		std::string command = receive_from_server();
 
-	if (command == "start") {
-		cout << "execute start command" << endl;
-		execute_start_command(sender);
+		if (command == "start") {
+			cout << "execute start command" << endl;
+			execute_start_command(sender);
+		}
+		else if (command == "pause") {
+			cout << "execute pause command" << endl;
+		}
+		else if (command == "stop") {
+			cout << "execute stop command" << endl;
+		}
+		else if (command == "heartbeat") {
+			cout << "reply heartbeat signal" << endl;
+		}
+		else {
+			cout << "unknown command" << endl;
+		}
 	}
-	else if (command == "pause"){
-		cout << "execute pause command" << endl;
-	}
-	else if (command == "stop"){
-		cout << "execute stop command" << endl;
-	}
-	else if (command == "heartbeat"){
-		cout << "reply heartbeat signal" << endl;
-	}
-	else {
-		cout << "unknown command" << endl;
-	}
+
 
 	//*************************** 3. exit simulation ***************************************
 	t1.join();//waiting for the simulation finish
