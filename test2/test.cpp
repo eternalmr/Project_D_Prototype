@@ -43,7 +43,7 @@ int main()
 			}
 			case (pause):{
 				if(start_flag == 1 && pause_flag ==0){
-					pause_flag == 1;
+					pause_flag = 1;
 					cout<<"pause simulation"<<endl;
 				}else{
 					cout<<"impossible to get here"<<endl;
@@ -100,5 +100,15 @@ int sim(int arg)
 
 signal_set listen_from_server()
 {
+	char command;
+	cout << "please input your command: " << endl;
+	std::cin >> command;
+
+	if (command == 's') 
+		return start;
+	if (command == 'p')
+		return pause;
+	if (command == 'e')
+		return stop;
 	return stop;
 }
