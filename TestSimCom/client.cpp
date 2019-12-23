@@ -1,125 +1,162 @@
-/* 
-创建两个线程，一个线程用来通信，一个线程用来仿真
-仿真线程接收从通信线程来的消息，判断具体做出什么响应
-
-*/
 #pragma warning(disable:4996)
 
-#include "zhelpers.hpp"
 #include <thread>
-#include <fstream>
+#include "zhelpers.hpp"
 
-using std::cout;
 using std::endl;
+using std::cout;
 
-// simulation thread
-void *simu(void *arg);
+enum SignalSet { kStart = 111, kStop = 222, kPause = 333, kUnkown = 444 };
 
-// receive signal from server
-std::string receive_from_server(std::string command = "start");
+int start_flag = 0;
+int pause_flag = 0;
+int  stop_flag = 0;
 
-void execute_start_command(zmq::socket_t &);
+int Simulation(int);
+SignalSet ListenFromServer(zmq::socket_t &socket);
+bool IsIrrelevant(SignalSet);
+bool HasReachedEndpoint(int, int);
 
-//  Main program starts simulation and send signal to simulation
 int main()
 {
-	//*************************** 1. initialize simulation *********************************
 	zmq::context_t context(1);
+	zmq::socket_t socket(context, ZMQ_REP);
+	socket.connect("tcp://localhost:5555");
 
-	//// Connect to server(留接口，暂时不用)
-	//std::string server_address = "tcp://localhost:5678";
-	//zmq::socket_t receiver(context, ZMQ_REQ);
-	//receiver.connect(server_address);
+	std::string command = s_recv(socket);
+	cout << "Received [" << command << "] from server" << endl;
 
-	//  Bind to inproc: simu, then start simu thread
-	zmq::socket_t sender(context, ZMQ_REQ);
-	sender.bind("inproc://simu");
-	std::thread t1(simu, &context);
+	s_send(socket, "I'm ready");
+	cout << "Telling server that I'm ready'" << endl;
 
-	//*************************** 2. execute command from server ***************************
-	 
+	SignalSet signal;
+	std::thread simulation_thread(Simulation, 5);
+
 	while (true) {
-		std::string command = receive_from_server();
+		//impossible situation
+		assert(!(start_flag == 0 && pause_flag == 1));
 
-		if (command == "start") {
-			cout << "execute start command" << endl;
-			execute_start_command(sender);
-		}
-		else if (command == "pause") {
-			cout << "execute pause command" << endl;
-		}
-		else if (command == "stop") {
-			cout << "execute stop command" << endl;
-		}
-		else if (command == "heartbeat") {
-			cout << "reply heartbeat signal" << endl;
-		}
-		else {
-			cout << "unknown command" << endl;
-		}
-	}
+		signal = ListenFromServer(socket);
 
+		if (stop_flag) {
+			s_send(socket, "finished");
+			break;
+		}
 
-	//*************************** 3. exit simulation ***************************************
-	t1.join();//waiting for the simulation finish
+		if (IsIrrelevant(signal)) {
+			s_send(socket, "Wrong Command");
+			continue;
+		}
 
-	sender.close();
-	context.close();
+		switch (signal) {
+			case kStart: {
+				if (start_flag == 0 && pause_flag == 0) {
+					start_flag = 1;
+					cout << "execute start command" << endl;
+				}
+				else if (start_flag == 1 && pause_flag == 1) {
+					pause_flag = 0;
+					cout << "continue simulation" << endl;
+				}
+				else {
+					cout << "impossible to get here" << endl;
+				}
+				s_send(socket, "");
+				break;
+			}
+			case kPause: {
+				if (start_flag == 1 && pause_flag == 0) {
+					pause_flag = 1;
+					cout << "pause simulation" << endl;
+				}
+				else {
+					cout << "impossible to get here" << endl;
+				}
+				s_send(socket, "");
+				break;
+			}
+			case kStop: {
+				if (start_flag == 1) {
+					start_flag = 0;
+					pause_flag = 0;
+					stop_flag = 1;
+					s_send(socket, "interrupt");
+					cout << "stop simulation" << endl;
+				}
+				else {
+					cout << "impossible to get here" << endl;
+				}
+				break;
+			}
+			default: {
+				cout << "unknown command" << endl;
+			}
+		}//end of switch
+		if (stop_flag) break;
+	}//end of while
+
+	simulation_thread.join();
 
 	system("pause");
 	return 0;
 }
 
-void execute_start_command(zmq::socket_t &sender)
+int Simulation(int input)
 {
-	s_send(sender, "start");            // Send start signal
-	std::string str = s_recv(sender);   // Receive feedback signal
-	std::cout << "main: receive signal: " << str << " from simu" << std::endl;
-}
+	int result = input;
 
-// simulation thread
-void *simu(void *arg)
-{
-	zmq::context_t * context = static_cast<zmq::context_t*>(arg);
-
-	//  Bind to inproc: endpoint, then start upstream thread
-	zmq::socket_t receiver(*context, ZMQ_REP);
-	receiver.connect("inproc://simu");
-
-	//  Wait for signal
-	std::string str = s_recv(receiver);
-	std::cout << "simu: receive signal: " << str << " from main" << std::endl;
-
-	//  Do some work
-	std::cout << "Do some work" << std::endl;
-
-	std::ofstream result("result.txt");
-	if (result.is_open()) {
-		result << "simulation start\n";
-		for (int i = 0; i < 5; i++) {//simulation process
-			//if (pause_flag == 1)
-			//{
-			//	sleep(1 second);
-			//	continue;
-			//}
-			time_t currentTime = time(0);
-			struct tm *t = localtime(&currentTime);
-			result << t->tm_hour << ":" << t->tm_min << ":" << t->tm_sec << std::endl;//output current time
-			Sleep(1000);//do some work
-		}
-		result << "simulation finished\n";
+	while (!start_flag) {
+		std::this_thread::yield();
 	}
 
-	// Reply to main
-	s_send(receiver, "work finished!");
+	while (true) {
+		if (stop_flag) return -1;//interrupt simulation
 
-	receiver.close();
+		if (start_flag == 1 && pause_flag == 1) {
+			std::this_thread::yield();
+			continue;
+		}
 
-	return (NULL);
+		if (HasReachedEndpoint(input, result)) {
+			stop_flag = 1;
+			cout << "simulation finished!" << endl;
+			break;
+		}
+
+		result++;
+		Sleep(1000);
+		cout << "result: " << result << endl;
+	}
+	return result;
 }
 
-// receive signal from server
-std::string receive_from_server(std::string command)
+SignalSet ListenFromServer(zmq::socket_t &socket)
 {
-	return command;//暂时模拟一个输入信号
+	std::string command = s_recv(socket);
+
+	if (command == "start")
+		return kStart;
+	if (command == "pause")
+		return kPause;
+	if (command == "stop")
+		return kStop;
+	return kPause;
+}
+
+bool IsIrrelevant(SignalSet signal)
+{
+	if ((signal == kStart) && (start_flag == 1 && pause_flag == 0)) //锟窖匡拷始锟斤拷未锟斤拷停
+		return true;
+	if ((signal == kPause) && (start_flag == 0 && pause_flag == 0))//未锟斤拷始
+		return true;
+	if ((signal == kPause) && (start_flag == 1 && pause_flag == 1))//锟窖匡拷始锟斤拷锟斤拷锟斤拷停
+		return true;
+	if ((signal == kStop) && (start_flag == 0 && pause_flag == 0))//未锟斤拷始
+		return true;
+	return false;
+}
+
+bool HasReachedEndpoint(int input, int result)
+{
+	return (result - input == 10);
 }
