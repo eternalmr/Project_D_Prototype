@@ -148,15 +148,15 @@ SignalSet ListenFromServer(zmq::socket_t &socket)
 
 bool IsIrrelevant(SignalSet signal)
 {
-	if ((signal == kStart) && (start_flag == 1 && pause_flag == 0)) //�ѿ�ʼ��δ��ͣ
-		return true;
-	if ((signal == kPause) && (start_flag == 0 && pause_flag == 0))//δ��ʼ
-		return true;
-	if ((signal == kPause) && (start_flag == 1 && pause_flag == 1))//�ѿ�ʼ������ͣ
-		return true;
-	if ((signal == kStop) && (start_flag == 0 && pause_flag == 0))//δ��ʼ
-		return true;
-	return false;
+	if ((signal == kStart) && (start_flag == 0 && pause_flag == 0))
+		return false;
+	if ((signal == kPause) && (start_flag == 1 && pause_flag == 0))
+		return false;
+	if ((signal == kStop) && (start_flag == 1))
+		return false;
+	if ((signal == kContinue) && (start_flag == 1 && pause_flag == 1))
+		return false;
+	return true;
 }
 
 bool HasReachedEndpoint(int input, int result)

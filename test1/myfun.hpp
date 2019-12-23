@@ -10,15 +10,13 @@ int  stop_flag = 0;
 
 bool IsIrrelevant(SignalSet signal)
 {
-	if ((signal == kStart) && (start_flag == 1 && pause_flag == 0)) 
-		return true;
-	if ((signal == kPause) && (start_flag == 0 && pause_flag == 0))
-		return true;
-	if ((signal == kPause) && (start_flag == 1 && pause_flag == 1))
-		return true;
-	if ((signal == kStop) && (start_flag == 0 && pause_flag == 0))
-		return true;
-	if ((signal == kStop) && (start_flag == 0 && pause_flag == 0))
-		return true;
-	return false;
+	if ((signal == kStart) && (start_flag == 0 && pause_flag == 0)) 
+		return false;
+	if ((signal == kPause) && (start_flag == 1 && pause_flag == 0))
+		return false;
+	if ((signal == kStop) && (start_flag == 1))
+		return false;
+	if ((signal == kContinue) && (start_flag == 1 && pause_flag == 1))
+		return false;
+	return true;
 }
