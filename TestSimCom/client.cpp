@@ -6,8 +6,9 @@
 using std::endl;
 using std::cout;
 
-enum SignalSet { kStart = 111, kStop = 222, kPause = 333, kUnkown = 444 };
-
+enum SignalSet { kStart = 111, kStop = 222, kPause = 333, 
+			  kContinue = 444, kUnknow = 555 };
+				
 int start_flag = 0;
 int pause_flag = 0;
 int  stop_flag = 0;
@@ -140,7 +141,9 @@ SignalSet ListenFromServer(zmq::socket_t &socket)
 		return kPause;
 	if (command == "stop")
 		return kStop;
-	return kPause;
+	if (command == "continue")
+		return kContinue;
+	return kUnknow;
 }
 
 bool IsIrrelevant(SignalSet signal)
