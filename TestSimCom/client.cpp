@@ -51,42 +51,29 @@ int main()
 
 		switch (signal) {
 			case kStart: {
-				if (start_flag == 0 && pause_flag == 0) {
-					start_flag = 1;
-					cout << "execute start command" << endl;
-				}
-				else if (start_flag == 1 && pause_flag == 1) {
-					pause_flag = 0;
-					cout << "continue simulation" << endl;
-				}
-				else {
-					cout << "impossible to get here" << endl;
-				}
+				start_flag = 1;
+				cout << "execute start command" << endl;
+				s_send(socket, "");
+				break;
+			}
+			case kContinue: {
+				pause_flag = 0;
+				cout << "continue simulation" << endl;
 				s_send(socket, "");
 				break;
 			}
 			case kPause: {
-				if (start_flag == 1 && pause_flag == 0) {
-					pause_flag = 1;
-					cout << "pause simulation" << endl;
-				}
-				else {
-					cout << "impossible to get here" << endl;
-				}
+				pause_flag = 1;
+				cout << "pause simulation" << endl;
 				s_send(socket, "");
 				break;
 			}
 			case kStop: {
-				if (start_flag == 1) {
-					start_flag = 0;
-					pause_flag = 0;
-					stop_flag = 1;
-					s_send(socket, "interrupt");
-					cout << "stop simulation" << endl;
-				}
-				else {
-					cout << "impossible to get here" << endl;
-				}
+				start_flag = 0;
+				pause_flag = 0;
+				stop_flag = 1;
+				s_send(socket, "interrupt");
+				cout << "stop simulation" << endl;
 				break;
 			}
 			default: {
