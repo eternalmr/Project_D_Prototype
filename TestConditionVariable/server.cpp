@@ -29,6 +29,8 @@ int main()
 
 		if (command == 's') {
 			s_send(socket, "start");
+		} else if (command == 'c') {
+			s_send(socket, "continue");
 		} else if (command == 'p') {
 			s_send(socket, "pause");
 		} else if (command == 'e') {
