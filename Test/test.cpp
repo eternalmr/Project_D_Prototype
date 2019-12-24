@@ -1,140 +1,88 @@
-#include <iostream>
-#include <windows.h>
+//   Request-reply client in C++
+//   Connects REQ socket to tcp://localhost:5559
+//   Sends "Hello" to server, expects "World" back
+//
+// Olivier Chamoux <olivier.chamoux@fr.thalesgroup.com>
+
+#pragma warning(disable: 4996)
+
+#include <zhelpers.hpp>
 #include <thread>
-#include <assert.h>
 
-using std::endl;
-using std::cout;
+int task_thread()
+{
+	zmq::context_t context(1);
 
-enum signal_set {start = 111, stop = 222, pause = 333};
+	zmq::socket_t requester(context, ZMQ_REQ);
+	requester.connect("tcp://localhost:5559");
 
-int start_flag = 0;
-int pause_flag = 0;
-int stop_flag = 0;
+	for (int request = 0; request < 100; request++) {
 
-int sim(int arg);
-signal_set listen_from_server();
-bool is_irrelevant(signal_set);
+		std::string str = "Hello " + std::to_string(request);
+		s_send(requester, str);
+		std::string string = s_recv(requester);
 
-int main()
-{	
-
-	std::thread simulation_thread(sim, 5);
-	signal_set signal;
-
-	while(true){
-		if (stop_flag) break;
-
-		signal = listen_from_server();
-
-		assert(!(start_flag == 0 && pause_flag == 1));//impossible situation
-
-		if( is_irrelevant(signal)) continue;
-
-		switch(signal){
-			case (start):{
-				if(start_flag == 0 && pause_flag == 0){
-					start_flag = 1;
-					cout<<"execute start command"<<endl;
-				}else if(start_flag == 1 && pause_flag ==1){
-					pause_flag = 0;
-					cout<<"continue simulation"<<endl;
-				}else{
-					cout<<"impossible to get here"<<endl;
-				}
-				break;
-			}
-			case (pause):{
-				if(start_flag == 1 && pause_flag ==0){
-					pause_flag = 1;
-					cout<<"pause simulation"<<endl;
-				}else{
-					cout<<"impossible to get here"<<endl;
-				}
-				break;
-			}
-			case (stop):{
-				if(start_flag == 1){
-					start_flag = 0;
-					pause_flag = 0;
-					stop_flag = 1;
-					cout<<"stop simulation"<<endl;
-				}else{
-					cout<<"impossible to get here"<<endl;
-				}
-				break;
-			}
-			default:
-				cout<<"unknown command"<<endl;
-		}
+		std::cout << "Received reply " << request
+			<< " [" << string << "]" << std::endl;
 	}
 
-	simulation_thread.join();
-
-	system("pause");
+	std::cout << "Simulation finished!" << std::endl;
 	return 0;
 }
 
-bool has_reached_endpoint(int input, int result)
+int broker_thread()
 {
-	return (result - input == 10);
+	//  Prepare our context and sockets
+	zmq::context_t context(1);
+	zmq::socket_t frontend(context, ZMQ_ROUTER);
+	zmq::socket_t backend(context, ZMQ_DEALER);
+
+	frontend.bind("tcp://*:5559");
+	backend.bind("tcp://*:5560");
+
+	zmq::proxy(frontend, backend, NULL);
+
+	frontend.close();
+	backend.close();
+	context.close();
+
+	return 0;
 }
 
-// 将输入参数+10后输出
-int sim(int input)
+int main()
 {
-	int result = input;
+	std::thread client(task_thread);
+	std::thread broker(broker_thread);
 
-	while (!start_flag) {
-		std::this_thread::yield();
+	client.join();
+	broker.join();
+
+	return 0;
+}
+
+#pragma warning(disable:4996)
+
+#include <zhelpers.hpp>
+
+int main(int argc, char *argv[])
+{
+	zmq::context_t context(1);
+
+	zmq::socket_t responder(context, ZMQ_REP);
+	responder.connect("tcp://localhost:5560");
+
+	while (1)
+	{
+		//  Wait for next request from client
+		std::string string = s_recv(responder);
+
+		std::cout << "Received request: " << string << std::endl;
+
+		// Do some 'work'
+		Sleep(1000);
+
+		//  Send reply back to client
+		s_send(responder, "World");
+
 	}
-
-	while (true) {
-		if (stop_flag) {
-			return -1;
-		}else if (start_flag == 1 && pause_flag == 1) {
-			std::this_thread::yield();
-			continue;
-		}
-		else {
-			result++;
-			cout << "result: " << result << endl;
-			Sleep(1000);
-		}
-
-		if (has_reached_endpoint(input, result)) {//到达正常仿真的终点
-			cout << "simulation finished!" << endl;
-			stop_flag = 1;
-			break; 
-		}
-	}
-	return result;
-}
-
-signal_set listen_from_server()
-{
-	char command;
-	cout << "please input your command: " << endl;
-	std::cin >> command;
-
-	if (command == 's')
-		return start;
-	if (command == 'p')
-		return pause;
-	if (command == 'e')
-		return stop;
-	return pause;
-}
-
-bool is_irrelevant(signal_set signal)
-{
-	if ((signal == start) && (start_flag == 1 && pause_flag == 0)) //已开始，未暂停
-		return true;
-	if ((signal == pause) && (start_flag == 0 && pause_flag == 0))//未开始
-		return true;
-	if ((signal == pause) && (start_flag == 1 && pause_flag == 1))//已开始，已暂停
-		return true;
-	if ((signal == stop) && (start_flag == 0 && pause_flag == 0))//未开始
-		return true;
-	return false;
 }
