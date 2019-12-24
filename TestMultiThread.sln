@@ -7,9 +7,9 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "test2", "Test\test2.vcxproj
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TestClient", "TestClient\TestClient.vcxproj", "{8FDFCE07-D503-4B04-B247-AE3E73A0E33E}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TestServer", "TestServer\TestConditionVariable.vcxproj", "{D82CFAD1-0C8C-48AC-82C3-DA17C9DA84BD}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TestServer", "TestServer\TestServer.vcxproj", "{D82CFAD1-0C8C-48AC-82C3-DA17C9DA84BD}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TestFunction", "TestFunction\test1.vcxproj", "{319EAD0E-00D4-490A-93F8-E38D2AA437F8}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TestFunction", "TestFunction\TestFunction.vcxproj", "{319EAD0E-00D4-490A-93F8-E38D2AA437F8}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
