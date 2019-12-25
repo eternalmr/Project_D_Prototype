@@ -12,7 +12,7 @@ int GenerateTasks()
 {
 	zmq::context_t context(1);
 	zmq::socket_t requester(context, ZMQ_REQ);
-	requester.connect("tcp://localhost:5559");
+	requester.connect("tcp://192.168.100.239:5559");
 
 	for (int request = 0; request < 20; request++) {
 
@@ -39,8 +39,8 @@ int AssignTasks()
 	zmq::socket_t frontend(context, ZMQ_ROUTER);
 	zmq::socket_t backend(context, ZMQ_DEALER);
 
-	frontend.bind("tcp://*:5559");
-	backend.bind("tcp://*:5560");
+	frontend.bind("tcp://192.168.100.239:5559");
+	backend.bind("tcp://192.168.100.239:5560");
 
 	zmq::proxy(frontend, backend, NULL);
 
@@ -55,8 +55,8 @@ int main()
 {
 	//  Prepare our context and socket
 	zmq::context_t context(1);
-	zmq::socket_t socket(context, ZMQ_REQ);
-	socket.bind("tcp://*:5555");
+	zmq::socket_t socket(context, ZMQ_PUB);
+	socket.bind("tcp://192.168.100.239:5555");
 
 	//// Send test message
 	//s_send(socket, "Hello");
@@ -91,16 +91,16 @@ int main()
 			continue;
 		}
 
-		replys = s_recv(socket);
-		if (replys == "finished") {
-			std::cout << "Simulation finished!" << std::endl;
-			break;
-		} else if (replys == "interrupt") {
-			std::cout << "Simulation interrupted!" << std::endl;
-			break;
-		} else {
-			std::cout << "Received [" << replys << "] from client" << std::endl;
-		}
+		//replys = s_recv(socket);
+		//if (replys == "finished") {
+		//	std::cout << "Simulation finished!" << std::endl;
+		//	break;
+		//} else if (replys == "interrupt") {
+		//	std::cout << "Simulation interrupted!" << std::endl;
+		//	break;
+		//} else {
+		//	std::cout << "Received [" << replys << "] from client" << std::endl;
+		//}
 	}
 
 	system("pause");

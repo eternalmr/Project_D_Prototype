@@ -22,9 +22,18 @@ bool HasReachedEndpoint(int, int);
 int main()
 {
 	zmq::context_t context(1);
-	zmq::socket_t socket(context, ZMQ_REP);
-	socket.connect("tcp://localhost:5555");
+	zmq::socket_t socket(context, ZMQ_SUB);
+	socket.connect("tcp://192.168.100.239:5555");
 
+	const char *start_filter    = "start";
+	const char *continue_filter = "continue";
+	const char *pause_filter    = "pause";
+	const char *stop_filter     = "stop";
+	socket.setsockopt(ZMQ_SUBSCRIBE, start_filter,    strlen(start_filter));
+	socket.setsockopt(ZMQ_SUBSCRIBE, continue_filter, strlen(continue_filter));
+	socket.setsockopt(ZMQ_SUBSCRIBE, pause_filter,    strlen(pause_filter));
+	socket.setsockopt(ZMQ_SUBSCRIBE, stop_filter,     strlen(stop_filter));
+	
 	//std::string command = s_recv(socket);
 	//cout << "Received [" << command << "] from server" << endl;
 
@@ -41,12 +50,12 @@ int main()
 		signal = ListenFromServer(socket);
 
 		if (stop_flag) {
-			s_send(socket, "finished");
+			//s_send(socket, "finished");
 			break;
 		}
 
 		if (IsIrrelevant(signal)) {
-			s_send(socket, "Wrong Command");
+			//s_send(socket, "Wrong Command");
 			continue;
 		}
 
@@ -54,26 +63,26 @@ int main()
 			case kStart: {
 				start_flag = 1;
 				cout << "execute start command" << endl;
-				s_send(socket, "");
+				//s_send(socket, "");
 				break;
 			}
 			case kContinue: {
 				pause_flag = 0;
 				cout << "continue simulation" << endl;
-				s_send(socket, "");
+				//s_send(socket, "");
 				break;
 			}
 			case kPause: {
 				pause_flag = 1;
 				cout << "pause simulation" << endl;
-				s_send(socket, "");
+				//s_send(socket, "");
 				break;
 			}
 			case kStop: {
 				start_flag = 0;
 				pause_flag = 0;
 				stop_flag = 1;
-				s_send(socket, "interrupt");
+				//s_send(socket, "interrupt");
 				cout << "stop simulation" << endl;
 				break;
 			}
@@ -94,7 +103,7 @@ int SimulationWrap()
 {
 	zmq::context_t context(1);
 	zmq::socket_t responder(context, ZMQ_REP);
-	responder.connect("tcp://localhost:5560");
+	responder.connect("tcp://192.168.100.239:5560");
 
 	int input;
 	int result;
@@ -141,7 +150,7 @@ int Simulation(int input)
 		}
 
 		result++;
-		Sleep(100);
+		Sleep(1000);
 		cout << "result: " << result << endl;
 
 		if (HasReachedEndpoint(input, result)) {
