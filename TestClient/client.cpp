@@ -13,6 +13,7 @@ int start_flag = 0;
 int pause_flag = 0;
 int  stop_flag = 0;
 
+int SimulationWrap();
 int Simulation(int);
 SignalSet ListenFromServer(zmq::socket_t &socket);
 bool IsIrrelevant(SignalSet);
@@ -24,14 +25,14 @@ int main()
 	zmq::socket_t socket(context, ZMQ_REP);
 	socket.connect("tcp://localhost:5555");
 
-	std::string command = s_recv(socket);
-	cout << "Received [" << command << "] from server" << endl;
+	//std::string command = s_recv(socket);
+	//cout << "Received [" << command << "] from server" << endl;
 
-	s_send(socket, "I'm ready");
-	cout << "Telling server that I'm ready'" << endl;
+	//s_send(socket, "I'm ready");
+	//cout << "Telling server that I'm ready'" << endl;
 
 	SignalSet signal;
-	std::thread simulation_thread(Simulation, 5);
+	std::thread simulation_thread(SimulationWrap);
 
 	while (true) {
 		//impossible situation
@@ -89,6 +90,39 @@ int main()
 	return 0;
 }
 
+int SimulationWrap()
+{
+	zmq::context_t context(1);
+	zmq::socket_t responder(context, ZMQ_REP);
+	responder.connect("tcp://localhost:5560");
+
+	int input;
+	int result;
+	while (true)
+	{
+		//  Wait for next request from server
+		std::string string = s_recv(responder);
+		std::cout << "Received request: " << string << std::endl;
+
+		// Do some 'work'
+		stop_flag = 0; //reset stop flag
+		input = atoi(string.c_str());
+		result = Simulation(input);
+
+		//  Send reply back to server
+		s_send(responder, std::to_string(result));
+
+		if (result == -1) {
+			std::cout << "Simulation interrupt" << std::endl;
+			break;
+		}
+	}
+
+	responder.close();
+	context.close();
+	return 0;
+}
+
 int Simulation(int input)
 {
 	int result = input;
@@ -97,6 +131,7 @@ int Simulation(int input)
 		std::this_thread::yield();
 	}
 
+	cout << "*****************************************" << endl;
 	while (true) {
 		if (stop_flag) return -1;//interrupt simulation
 
@@ -105,16 +140,17 @@ int Simulation(int input)
 			continue;
 		}
 
+		result++;
+		Sleep(100);
+		cout << "result: " << result << endl;
+
 		if (HasReachedEndpoint(input, result)) {
 			stop_flag = 1;
 			cout << "simulation finished!" << endl;
 			break;
 		}
-
-		result++;
-		Sleep(1000);
-		cout << "result: " << result << endl;
 	}
+	cout << "*****************************************" << endl;
 	return result;
 }
 
@@ -148,5 +184,5 @@ bool IsIrrelevant(SignalSet signal)
 
 bool HasReachedEndpoint(int input, int result)
 {
-	return (result - input == 10);
+	return (result - input == 5);
 }

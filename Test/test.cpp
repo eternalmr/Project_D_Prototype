@@ -81,7 +81,7 @@ int main(int argc, char *argv[])
 		// Do some 'work'
 		Sleep(1000);
 
-		//  Send reply back to client
+		// Send reply back to client
 		s_send(responder, "World");
 
 	}

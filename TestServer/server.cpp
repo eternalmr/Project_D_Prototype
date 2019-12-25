@@ -8,28 +8,31 @@
 #include "zhelpers.hpp"
 #include <thread>
 
-int task_thread()
+int GenarateTasks()
 {
 	zmq::context_t context(1);
-
 	zmq::socket_t requester(context, ZMQ_REQ);
 	requester.connect("tcp://localhost:5559");
 
-	for (int request = 0; request < 100; request++) {
+	for (int request = 0; request < 20; request++) {
 
-		std::string str = "Hello " + std::to_string(request);
+		std::string str = std::to_string(request);
 		s_send(requester, str);
-		std::string string = s_recv(requester);
+		std::string result = s_recv(requester);
 
-		std::cout << "Received reply " << request
-			<< " [" << string << "]" << std::endl;
+		std::cout << "Result of request[" << request
+			<< "]: " << result << std::endl;
+
+		if (atoi(result.c_str()) == -1) {
+			break;
+		}
 	}
 
 	std::cout << "Simulation finished!" << std::endl;
 	return 0;
 }
 
-int broker_thread()
+int AssignTasks()
 {
 	//  Prepare our context and sockets
 	zmq::context_t context(1);
@@ -55,15 +58,20 @@ int main()
 	zmq::socket_t socket(context, ZMQ_REQ);
 	socket.bind("tcp://*:5555");
 
-	// Send test message
-	s_send(socket, "Hello");
-	std::cout << "Say Hello to client" << std::endl;
+	//// Send test message
+	//s_send(socket, "Hello");
+	//std::cout << "Say Hello to client" << std::endl;
 
-	//  Get the reply.
-	std::string replys = s_recv(socket);
-	std::cout << "Received [" << replys << "] from client" << std::endl;
+	////  Get the reply.
+	//std::string replys = s_recv(socket);
+	//std::cout << "Received [" << replys << "] from client" << std::endl;
+
+	// 启动任务线程和代理线程
+	std::thread task_thread(GenarateTasks);
+	std::thread proxy_thread(AssignTasks);
 
 	char command;
+	std::string replys;
 	while (true) {
 		std::cout << "Please input your command: ";
 		std::cin >> command;
