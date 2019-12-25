@@ -11,7 +11,7 @@
 int GenerateTasks()
 {
 	zmq::context_t context(1);
-	zmq::socket_t requester(context, ZMQ_REQ);
+	zmq::socket_t requester(context, ZMQ_DEALER);
 	requester.connect("tcp://192.168.100.239:5559");
 
 	for (int request = 0; request < 20; request++) {
