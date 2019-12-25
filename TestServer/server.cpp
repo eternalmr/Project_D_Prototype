@@ -8,7 +8,7 @@
 #include "zhelpers.hpp"
 #include <thread>
 
-int GenarateTasks()
+int GenerateTasks()
 {
 	zmq::context_t context(1);
 	zmq::socket_t requester(context, ZMQ_REQ);
@@ -67,7 +67,7 @@ int main()
 	//std::cout << "Received [" << replys << "] from client" << std::endl;
 
 	// 启动任务线程和代理线程
-	std::thread task_thread(GenarateTasks);
+	std::thread task_thread(GenerateTasks);
 	std::thread proxy_thread(AssignTasks);
 
 	char command;
