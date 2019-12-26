@@ -111,6 +111,11 @@ int SimulationWrap()
 	{
 		//  Wait for next request from server
 		std::string string = s_recv(responder);
+		if (atoi(string.c_str()) == 0){
+			s_sendmore(responder, "");
+			s_send(responder, "discard");
+			continue;
+		}
 		std::cout << "Received request: " << string << std::endl;
 
 		// Do some 'work'
@@ -119,6 +124,7 @@ int SimulationWrap()
 		result = Simulation(input);
 
 		//  Send reply back to server
+		s_sendmore(responder, "");
 		s_send(responder, std::to_string(result));
 
 		if (result == -1) {

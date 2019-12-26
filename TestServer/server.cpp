@@ -16,8 +16,10 @@ int GenerateTasks()
 
 	for (int request = 0; request < 20; request++) {
 
+		s_sendmore(requester, "");
 		std::string str = std::to_string(request);
 		s_send(requester, str);
+
 		std::string result = s_recv(requester);
 
 		std::cout << "Result of request[" << request
