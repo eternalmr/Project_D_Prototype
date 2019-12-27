@@ -5,8 +5,6 @@
 using std::cout;
 using std::endl;
 
-
-
 class Task
 {
  private:
@@ -105,8 +103,6 @@ int main()
 		
 		workers.push(node);
 	}
-
-
 
 	system("pause");
 	return 0;
