@@ -19,28 +19,27 @@ SignalSet ListenFromServer(zmq::socket_t &socket);
 bool IsIrrelevant(SignalSet);
 bool HasReachedEndpoint(int, int);
 
+void subscribe_specific_signal(zmq::socket_t &socket)
+{
+	const char *start_filter = "start";
+	const char *continue_filter = "continue";
+	const char *pause_filter = "pause";
+	const char *stop_filter = "stop";
+	socket.setsockopt(ZMQ_SUBSCRIBE, start_filter, strlen(start_filter));
+	socket.setsockopt(ZMQ_SUBSCRIBE, continue_filter, strlen(continue_filter));
+	socket.setsockopt(ZMQ_SUBSCRIBE, pause_filter, strlen(pause_filter));
+	socket.setsockopt(ZMQ_SUBSCRIBE, stop_filter, strlen(stop_filter));
+}
+
 int main()
 {
 	zmq::context_t context(1);
 	zmq::socket_t socket(context, ZMQ_SUB);
 	socket.connect("tcp://192.168.100.239:5555");
 
-	const char *start_filter    = "start";
-	const char *continue_filter = "continue";
-	const char *pause_filter    = "pause";
-	const char *stop_filter     = "stop";
-	socket.setsockopt(ZMQ_SUBSCRIBE, start_filter,    strlen(start_filter));
-	socket.setsockopt(ZMQ_SUBSCRIBE, continue_filter, strlen(continue_filter));
-	socket.setsockopt(ZMQ_SUBSCRIBE, pause_filter,    strlen(pause_filter));
-	socket.setsockopt(ZMQ_SUBSCRIBE, stop_filter,     strlen(stop_filter));
-	
-	//std::string command = s_recv(socket);
-	//cout << "Received [" << command << "] from server" << endl;
-
-	//s_send(socket, "I'm ready");
-	//cout << "Telling server that I'm ready'" << endl;
-
 	SignalSet signal;
+	subscribe_specific_signal(socket);
+
 	std::thread simulation_thread(SimulationWrap);
 
 	while (true) {
@@ -50,12 +49,10 @@ int main()
 		signal = ListenFromServer(socket);
 
 		if (stop_flag) {
-			//s_send(socket, "finished");
 			break;
 		}
 
 		if (IsIrrelevant(signal)) {
-			//s_send(socket, "Wrong Command");
 			continue;
 		}
 
@@ -63,26 +60,22 @@ int main()
 			case kStart: {
 				start_flag = 1;
 				cout << "execute start command" << endl;
-				//s_send(socket, "");
 				break;
 			}
 			case kContinue: {
 				pause_flag = 0;
 				cout << "continue simulation" << endl;
-				//s_send(socket, "");
 				break;
 			}
 			case kPause: {
 				pause_flag = 1;
 				cout << "pause simulation" << endl;
-				//s_send(socket, "");
 				break;
 			}
 			case kStop: {
 				start_flag = 0;
 				pause_flag = 0;
 				stop_flag = 1;
-				//s_send(socket, "interrupt");
 				cout << "stop simulation" << endl;
 				break;
 			}
@@ -102,38 +95,34 @@ int main()
 int SimulationWrap()
 {
 	zmq::context_t context(1);
-	zmq::socket_t responder(context, ZMQ_REP);
-	responder.connect("tcp://192.168.100.239:5560");
+	zmq::socket_t worker(context, ZMQ_REQ);
+	worker.connect("tcp://192.168.100.239:5560");
 
-	int input;
+	int task_input;
 	int result;
-	while (true)
-	{
-		//  Wait for next request from server
-		std::string string = s_recv(responder);
-		if (atoi(string.c_str()) == 0){
-			s_sendmore(responder, "");
-			s_send(responder, "discard");
-			continue;
-		}
-		std::cout << "Received request: " << string << std::endl;
+	while (true) {
+		// Send ready to server
+		std::cout << "**********************************************" << std::endl;
+		s_send(worker, "ready");
+
+		// Receive a task from server
+		std::string new_task = s_recv(worker);
+		std::cout << "Receive a new task: " << new_task << std::endl;
 
 		// Do some 'work'
 		stop_flag = 0; //reset stop flag
-		input = atoi(string.c_str());
-		result = Simulation(input);
-
-		//  Send reply back to server
-		s_sendmore(responder, "");
-		s_send(responder, std::to_string(result));
+		task_input = atoi(new_task.c_str());
+		result = Simulation(task_input);
 
 		if (result == -1) {
 			std::cout << "Simulation interrupt" << std::endl;
 			break;
 		}
+
+		std::cout << "**********************************************" << std::endl;
 	}
 
-	responder.close();
+	worker.close();
 	context.close();
 	return 0;
 }
@@ -146,7 +135,6 @@ int Simulation(int input)
 		std::this_thread::yield();
 	}
 
-	cout << "*****************************************" << endl;
 	while (true) {
 		if (stop_flag) return -1;//interrupt simulation
 
@@ -165,7 +153,7 @@ int Simulation(int input)
 			break;
 		}
 	}
-	cout << "*****************************************" << endl;
+
 	return result;
 }
 
@@ -199,5 +187,5 @@ bool IsIrrelevant(SignalSet signal)
 
 bool HasReachedEndpoint(int input, int result)
 {
-	return (result - input == 5);
+	return (result - input == 10);
 }
