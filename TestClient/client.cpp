@@ -98,6 +98,9 @@ int simulation_wrap()
 	zmq::socket_t worker(context, ZMQ_REQ);
 	worker.connect("tcp://192.168.100.239:5560");
 
+	zmq::socket_t result_sender(context, ZMQ_PUSH);
+	result_sender.connect("tcp://localhost:5558");
+
 	int task_input;
 	int result;
 	while (true) {
@@ -118,6 +121,11 @@ int simulation_wrap()
 			std::cout << "Simulation interrupt" << std::endl;
 			break;
 		}
+
+		//  Send results to sink
+		std::string result_info = "result of task " + new_task 
+								+ " is: " + std::to_string(result);
+		s_send(result_sender, result_info);
 
 		std::cout << "**********************************************" << std::endl;
 	}

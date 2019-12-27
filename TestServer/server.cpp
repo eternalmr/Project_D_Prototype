@@ -8,6 +8,23 @@
 #include "zhelpers.hpp"
 #include <thread>
 
+int collect_result()
+{
+	//  Prepare our context and socket
+	zmq::context_t context(1);
+	zmq::socket_t collector(context, ZMQ_PULL);
+	collector.bind("tcp://*:5558");
+
+	// Collect result from workers
+	std::string result;
+	while (true) {
+		result = s_recv(collector);
+		std::cout << result << std::endl;
+	}
+
+	return 0;
+}
+
 int assign_tasks() {
 	zmq::context_t context(1);
 	zmq::socket_t server(context, ZMQ_REP);
@@ -45,6 +62,7 @@ int main()
 
 	// 启动任务线程
 	std::thread task_thread(assign_tasks);
+	std::thread result_thread(collect_result);
 
 	char command;
 	while (true) {
@@ -66,6 +84,9 @@ int main()
 			continue;
 		}
 	}
+
+	task_thread.join();
+	result_thread.join();
 
 	system("pause");
 	return 0;
