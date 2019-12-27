@@ -13,11 +13,11 @@ int start_flag = 0;
 int pause_flag = 0;
 int  stop_flag = 0;
 
-int SimulationWrap();
-int Simulation(int);
-SignalSet ListenFromServer(zmq::socket_t &socket);
-bool IsIrrelevant(SignalSet);
-bool HasReachedEndpoint(int, int);
+int simulation_wrap();
+int simulation(int);
+SignalSet listen_from_server(zmq::socket_t &socket);
+bool is_irrelevant(SignalSet);
+bool has_reached_endpoint(int, int);
 
 void subscribe_specific_signal(zmq::socket_t &socket)
 {
@@ -40,19 +40,19 @@ int main()
 	SignalSet signal;
 	subscribe_specific_signal(socket);
 
-	std::thread simulation_thread(SimulationWrap);
+	std::thread simulation_thread(simulation_wrap);
 
 	while (true) {
 		//impossible situation
 		assert(!(start_flag == 0 && pause_flag == 1));
 
-		signal = ListenFromServer(socket);
+		signal = listen_from_server(socket);
 
 		if (stop_flag) {
 			break;
 		}
 
-		if (IsIrrelevant(signal)) {
+		if (is_irrelevant(signal)) {
 			continue;
 		}
 
@@ -92,7 +92,7 @@ int main()
 	return 0;
 }
 
-int SimulationWrap()
+int simulation_wrap()
 {
 	zmq::context_t context(1);
 	zmq::socket_t worker(context, ZMQ_REQ);
@@ -102,17 +102,17 @@ int SimulationWrap()
 	int result;
 	while (true) {
 		// Send ready to server
-		std::cout << "**********************************************" << std::endl;
 		s_send(worker, "ready");
 
 		// Receive a task from server
 		std::string new_task = s_recv(worker);
+		std::cout << "**********************************************" << std::endl;
 		std::cout << "Receive a new task: " << new_task << std::endl;
 
 		// Do some 'work'
 		stop_flag = 0; //reset stop flag
 		task_input = atoi(new_task.c_str());
-		result = Simulation(task_input);
+		result = simulation(task_input);
 
 		if (result == -1) {
 			std::cout << "Simulation interrupt" << std::endl;
@@ -127,7 +127,7 @@ int SimulationWrap()
 	return 0;
 }
 
-int Simulation(int input)
+int simulation(int input)
 {
 	int result = input;
 
@@ -147,7 +147,7 @@ int Simulation(int input)
 		Sleep(1000);
 		cout << "result: " << result << endl;
 
-		if (HasReachedEndpoint(input, result)) {
+		if (has_reached_endpoint(input, result)) {
 			stop_flag = 1;
 			cout << "simulation finished!" << endl;
 			break;
@@ -157,7 +157,7 @@ int Simulation(int input)
 	return result;
 }
 
-SignalSet ListenFromServer(zmq::socket_t &socket)
+SignalSet listen_from_server(zmq::socket_t &socket)
 {
 	std::string command = s_recv(socket);
 
@@ -172,7 +172,7 @@ SignalSet ListenFromServer(zmq::socket_t &socket)
 	return kUnknow;
 }
 
-bool IsIrrelevant(SignalSet signal)
+bool is_irrelevant(SignalSet signal)
 {
 	if ((signal == kStart) && (start_flag == 0 && pause_flag == 0))
 		return false;
@@ -185,7 +185,7 @@ bool IsIrrelevant(SignalSet signal)
 	return true;
 }
 
-bool HasReachedEndpoint(int input, int result)
+bool has_reached_endpoint(int input, int result)
 {
 	return (result - input == 10);
 }
