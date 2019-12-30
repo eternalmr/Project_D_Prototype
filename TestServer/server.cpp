@@ -8,29 +8,11 @@
 #include "zhelpers.hpp"
 #include <thread>
 
-int collect_result()
-{
-	//  Prepare our context and socket
-	zmq::context_t context(1);
-	zmq::socket_t collector(context, ZMQ_PULL);
-	collector.bind("tcp://*:5558");
-
-	// Collect result from workers
-	std::string result;
-	while (true) {
-		result = s_recv(collector);
-		std::cout << result << std::endl;
-	}
-
-	return 0;
-}
 
 int assign_tasks() {
 	zmq::context_t context(1);
 	zmq::socket_t server(context, ZMQ_REP);
 	server.bind("tcp://192.168.100.239:5560");
-
-	// TODO : start heartbeat and collector thread
 
 	// TODO : create task pool
 
@@ -53,6 +35,24 @@ int assign_tasks() {
 	return 0;
 }
 
+int collect_result()
+{
+	//  Prepare our context and socket
+	zmq::context_t context(1);
+	zmq::socket_t collector(context, ZMQ_PULL);
+	collector.bind("tcp://*:5558");
+
+	// Collect result from workers
+	std::string result;
+	while (true) {
+		result = s_recv(collector);
+		std::cout << result << std::endl;
+	}
+
+	return 0;
+}
+
+
 int main()
 {
 	//  Prepare our context and socket
@@ -63,6 +63,7 @@ int main()
 	// 启动任务线程
 	std::thread task_thread(assign_tasks);
 	std::thread result_thread(collect_result);
+	// TODO : start heartbeat thread
 
 	char command;
 	while (true) {
