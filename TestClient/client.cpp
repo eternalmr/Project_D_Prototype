@@ -2,198 +2,76 @@
 
 #include <thread>
 #include "zhelpers.hpp"
+#include <regex>
+#include <vector>
+#include <iterator>
+
+#define HEARTBEAT_LIVENESS  3       //  3-5 is reasonable
+#define HEARTBEAT_INTERVAL  1000    //  msecs
+#define INTERVAL_INIT       1000    //  Initial reconnect
+#define INTERVAL_MAX       32000    //  After exponential back off
 
 using std::endl;
 using std::cout;
 
-enum SignalSet { kStart = 111, kStop = 222, kPause = 333, 
-			  kContinue = 444, kUnknow = 555 };
-				
-int start_flag = 0;
-int pause_flag = 0;
-int  stop_flag = 0;
-
-int simulation_wrap();
-int simulation(int);
-SignalSet listen_from_server(zmq::socket_t &socket);
-bool is_irrelevant(SignalSet);
-bool has_reached_endpoint(int, int);
-
-void subscribe_specific_signal(zmq::socket_t &socket)
+/*
+   用delim指定的正则表达式将字符串in分割，返回分割后的字符串数组
+   delim 分割字符串的正则表达式
+ */
+std::vector<std::string> s_split(const std::string& in, 
+								 const std::string& delim) 
 {
-	const char *start_filter = "start";
-	const char *continue_filter = "continue";
-	const char *pause_filter = "pause";
-	const char *stop_filter = "stop";
-	socket.setsockopt(ZMQ_SUBSCRIBE, start_filter, strlen(start_filter));
-	socket.setsockopt(ZMQ_SUBSCRIBE, continue_filter, strlen(continue_filter));
-	socket.setsockopt(ZMQ_SUBSCRIBE, pause_filter, strlen(pause_filter));
-	socket.setsockopt(ZMQ_SUBSCRIBE, stop_filter, strlen(stop_filter));
+	std::regex re{ delim };
+
+	return std::vector<std::string> {
+				std::sregex_token_iterator(in.begin(), in.end(), re, -1),
+				std::sregex_token_iterator()
+	};
+}
+
+void send_heartbeat(zmq::context_t &context)
+{
+	zmq::socket_t heartbeat_sender(context, ZMQ_PUSH);
+
+	heartbeat_sender.connect("tcp://127.0.0.1:1217");
+
+	int64_t heartbeat_at = s_clock() + HEARTBEAT_INTERVAL;
+
+	// send heartbeat at regular interval
+	while (true) {
+		if (s_clock() > heartbeat_at) {
+			heartbeat_at = s_clock() + HEARTBEAT_INTERVAL;
+			s_send(heartbeat_sender, "HEARTBEAT_1");
+		}
+	}
+
 }
 
 int main()
 {
 	zmq::context_t context(1);
-	zmq::socket_t socket(context, ZMQ_SUB);
-	socket.connect("tcp://192.168.100.239:5555");
+	zmq::socket_t test_socket(context, ZMQ_PULL);
 
-	SignalSet signal;
-	subscribe_specific_signal(socket);
+	std::thread heartbeat_thread(send_heartbeat, std::ref(context));
 
-	std::thread simulation_thread(simulation_wrap);
+	test_socket.bind("tcp://127.0.0.1:1217");
+	//should receive 10 heartbeat in specific time interval
+	int64_t test_end = s_clock() + HEARTBEAT_INTERVAL * 10 + 500;
+	int64_t current_time = s_clock();
 
-	while (true) {
-		//impossible situation
-		assert(!(start_flag == 0 && pause_flag == 1));
-
-		signal = listen_from_server(socket);
-
-		if (stop_flag) {
-			break;
+	int count = 0;
+	while (current_time < test_end) {
+		std::string raw_signal = s_recv(test_socket);
+		auto signal = s_split(raw_signal, "_");
+		if (signal[0] == "HEARTBEAT") {
+			std::cout << "Received heartbeat from node " << signal[1] << ": "<< count << std::endl;
+			count++;
 		}
+		current_time = s_clock();
+	}
+	cout << count << endl;
 
-		if (is_irrelevant(signal)) {
-			continue;
-		}
+	heartbeat_thread.join();
 
-		switch (signal) {
-			case kStart: {
-				start_flag = 1;
-				cout << "execute start command" << endl;
-				break;
-			}
-			case kContinue: {
-				pause_flag = 0;
-				cout << "continue simulation" << endl;
-				break;
-			}
-			case kPause: {
-				pause_flag = 1;
-				cout << "pause simulation" << endl;
-				break;
-			}
-			case kStop: {
-				start_flag = 0;
-				pause_flag = 0;
-				stop_flag = 1;
-				cout << "stop simulation" << endl;
-				break;
-			}
-			default: {
-				cout << "unknown command" << endl;
-			}
-		}//end of switch
-		if (stop_flag) break;
-	}//end of while
-
-	simulation_thread.join();
-
-	system("pause");
 	return 0;
-}
-
-int simulation_wrap()
-{
-	zmq::context_t context(1);
-	zmq::socket_t worker(context, ZMQ_REQ);
-	worker.connect("tcp://192.168.100.239:5560");
-
-	zmq::socket_t result_sender(context, ZMQ_PUSH);
-	result_sender.connect("tcp://localhost:5558");
-
-	int task_input;
-	int result;
-	while (true) {
-		// Send ready to server
-		s_send(worker, "ready");
-
-		// Receive a task from server
-		std::string new_task = s_recv(worker);
-		std::cout << "**********************************************" << std::endl;
-		std::cout << "Receive a new task: " << new_task << std::endl;
-
-		// Do some 'work'
-		stop_flag = 0; //reset stop flag
-		task_input = atoi(new_task.c_str());
-		result = simulation(task_input);
-
-		if (result == -1) {
-			std::cout << "Simulation interrupt" << std::endl;
-			break;
-		}
-
-		//  Send results to sink
-		std::string result_info = "result of task " + new_task 
-								+ " is: " + std::to_string(result);
-		s_send(result_sender, result_info);
-
-		std::cout << "**********************************************" << std::endl;
-	}
-
-	worker.close();
-	context.close();
-	return 0;
-}
-
-int simulation(int input)
-{
-	int result = input;
-
-	while (!start_flag) {
-		std::this_thread::yield();
-	}
-
-	while (true) {
-		if (stop_flag) return -1;//interrupt simulation
-
-		if (start_flag == 1 && pause_flag == 1) {
-			std::this_thread::yield();
-			continue;
-		}
-
-		result++;
-		Sleep(1000);
-		cout << "result: " << result << endl;
-
-		if (has_reached_endpoint(input, result)) {
-			stop_flag = 1;
-			cout << "simulation finished!" << endl;
-			break;
-		}
-	}
-
-	return result;
-}
-
-SignalSet listen_from_server(zmq::socket_t &socket)
-{
-	std::string command = s_recv(socket);
-
-	if (command == "start")
-		return kStart;
-	if (command == "pause")
-		return kPause;
-	if (command == "stop")
-		return kStop;
-	if (command == "continue")
-		return kContinue;
-	return kUnknow;
-}
-
-bool is_irrelevant(SignalSet signal)
-{
-	if ((signal == kStart) && (start_flag == 0 && pause_flag == 0))
-		return false;
-	if ((signal == kPause) && (start_flag == 1 && pause_flag == 0))
-		return false;
-	if ((signal == kStop) && (start_flag == 1))
-		return false;
-	if ((signal == kContinue) && (start_flag == 1 && pause_flag == 1))
-		return false;
-	return true;
-}
-
-bool has_reached_endpoint(int input, int result)
-{
-	return (result - input == 10);
 }
