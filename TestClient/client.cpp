@@ -42,27 +42,90 @@ void send_heartbeat(zmq::context_t &context, unsigned int client_id)
 	}
 }
 
+class Task
+{
+private:
+	enum ComputeStatus { kNotStart = 0, kInComputing, kFinished };
+	enum   StoreStatus { kNotSave = 0, kSaved };
+
+public:
+	Task()
+	{
+		set_id(0);
+		set_compute_status(kNotStart);
+		set_store_status(kNotSave);
+	}
+
+	explicit Task(unsigned int id)
+	{
+		set_id(id);
+		set_compute_status(kNotStart);
+		set_store_status(kNotSave);
+	}
+
+	int get_id() const { return id_; }
+
+
+	ComputeStatus get_compute_status() const { return compute_status_; }
+	StoreStatus get_store_status() const { return store_status_; }
+
+	void set_compute_status(ComputeStatus status) { compute_status_ = status; }
+	void set_store_status(StoreStatus status) { store_status_ = status; }
+
+private:
+	void set_id(unsigned int id) { id_ = id; }
+
+private:
+	unsigned int id_;
+	ComputeStatus compute_status_;
+	StoreStatus store_status_;
+};
+
+class ComputeNode
+{
+private:
+	enum NodeStatus { kFree = 0, kInComputing, kBreakdown };
+
+public:
+	ComputeNode() : node_id_(0), node_status_(kFree) {}
+	explicit ComputeNode(unsigned int id) : node_id_(id), node_status_(kFree) {}
+
+	unsigned int get_node_id() const { return node_id_; }
+	NodeStatus get_node_status() const { return node_status_; }
+	Task get_task() const { return task_; }
+
+	void set_node_id(unsigned int id) { node_id_ = id; }
+	void set_node_status(NodeStatus status) { node_status_ = status; }
+	void set_task(Task task) { task_ = task; }
+
+private:
+	unsigned int node_id_;
+	NodeStatus node_status_;
+	Task task_;
+	int64_t heartbeat_;
+	int64_t expiry_;
+};
+
 int main()
 {
 	zmq::context_t context(1);
-	zmq::socket_t test_socket(context, ZMQ_PULL);
+	zmq::socket_t recv_heartbeat(context, ZMQ_PULL);
 
 	std::thread heartbeat_thread(send_heartbeat, std::ref(context), 1);
 
-	test_socket.bind("tcp://127.0.0.1:1217");
-	//should receive 10 heartbeat in specific time interval
-	int64_t test_end = s_clock() + 10000;
-	int64_t current_time = s_clock();
+	recv_heartbeat.bind("tcp://127.0.0.1:1217");
+
+	//create a client vector or something
+	std::vector<ComputeNode> clients;
 
 	int count = 0;
-	while (current_time < test_end) {
-		auto raw_signal = s_recv(test_socket);
+	while ( true ) {
+		auto raw_signal = s_recv(recv_heartbeat);
 		auto signal = s_split(raw_signal, "_");
 		if (signal[0] == "HEARTBEAT") {
 			std::cout << "Received heartbeat from node " << signal[1] << ": "<< count << std::endl;
 			count++;
 		}
-		current_time = s_clock();
 	}
 
 	heartbeat_thread.join();
