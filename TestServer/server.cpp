@@ -1,177 +1,187 @@
-//
-//  Simulation server 
-//  Connects REQ socket to tcp://localhost:5555
-//  Sends commands to client
-//
 #pragma warning(disable:4996)
 
-#include "zhelpers.hpp"
 #include <thread>
-#include "zmsg.hpp"
-
-#include <stdint.h>
+#include "zhelpers.hpp"
+#include <regex>
 #include <vector>
+#include <iterator>
+#include <map>
 
 #define HEARTBEAT_LIVENESS  3       //  3-5 is reasonable
-#define HEARTBEAT_INTERVAL  1000    //  msecs
+#define HEARTBEAT_INTERVAL  2000    //  msecs
+#define INTERVAL_INIT       1000    //  Initial reconnect
+#define INTERVAL_MAX       32000    //  After exponential back off
 
-//  This defines one active worker in our worker queue
+using std::endl;
+using std::cout;
 
-typedef struct {
-	std::string identity;           //  Address of worker
-	int64_t     expiry;             //  Expires at this time
-} worker_t;
-
-//  Insert worker at end of queue, reset expiry
-//  Worker must not already be in queue
-static void
-s_worker_append(std::vector<worker_t> &queue, std::string &identity)
+/*
+   用delim指定的正则表达式将字符串in分割，返回分割后的字符串数组
+   delim 分割字符串的正则表达式
+*/
+std::vector<std::string> s_split(const std::string& in,
+	const std::string& delim)
 {
-	bool found = false;
-	for (std::vector<worker_t>::iterator it = queue.begin(); it < queue.end(); it++) {
-		if (it->identity.compare(identity) == 0) {
-			std::cout << "E: duplicate worker identity " << identity.c_str() << std::endl;
-			found = true;
-			break;
-		}
-	}
-	if (!found) {
-		worker_t worker;
-		worker.identity = identity;
-		worker.expiry = s_clock() + HEARTBEAT_INTERVAL * HEARTBEAT_LIVENESS;
-		queue.push_back(worker);
+	std::regex re{ delim };
+
+	return std::vector<std::string> {
+		std::sregex_token_iterator(in.begin(), in.end(), re, -1),
+			std::sregex_token_iterator()
+	};
+}
+
+std::tuple<int, std::string> decode_signal(std::string &raw_signal)
+{
+	auto signal = s_split(raw_signal, "_"); // TODO : use std::tuple to seperate signals
+	return std::make_tuple(std::stoi(signal[1]), signal[0]);
+}
+
+bool node_is_expiry()
+{
+	return false;
+}
+
+void send_heartbeat(zmq::context_t &context, unsigned int client_id)
+{
+	zmq::socket_t heartbeat_sender(context, ZMQ_PUSH);
+	heartbeat_sender.connect("tcp://127.0.0.1:1217");
+
+	std::string signal = "HEARTBEAT_" + std::to_string(client_id);
+	// send heartbeat at regular interval
+	while (true) {
+		s_send(heartbeat_sender, signal);
+		std::this_thread::sleep_for(std::chrono::milliseconds(HEARTBEAT_INTERVAL));
 	}
 }
 
-//  Remove worker from queue, if present
-static void
-s_worker_delete(std::vector<worker_t> &queue, std::string &identity)
+class Task
 {
-	for (std::vector<worker_t>::iterator it = queue.begin(); it < queue.end(); it++) {
-		if (it->identity.compare(identity) == 0) {
-			it = queue.erase(it);
-			break;
-		}
+private:
+	enum ComputeStatus { kNotStart = 0, kInComputing, kFinished };
+	enum   StoreStatus { kNotSave = 0, kSaved };
+
+public:
+	Task()
+	{
+		set_id(0);
+		set_compute_status(kNotStart);
+		set_store_status(kNotSave);
 	}
-}
 
-//  Reset worker expiry, worker must be present
-static void
-s_worker_refresh(std::vector<worker_t> &queue, std::string &identity)
-{
-	bool found = false;
-	for (std::vector<worker_t>::iterator it = queue.begin(); it < queue.end(); it++) {
-		if (it->identity.compare(identity) == 0) {
-			it->expiry = s_clock()
-				+ HEARTBEAT_INTERVAL * HEARTBEAT_LIVENESS;
-			found = true;
-			break;
-		}
+	explicit Task(unsigned int id)
+	{
+		set_id(id);
+		set_compute_status(kNotStart);
+		set_store_status(kNotSave);
 	}
-	if (!found) {
-		std::cout << "E: worker " << identity << " not ready" << std::endl;
+
+	int get_id() const { return id_; }
+
+
+	ComputeStatus get_compute_status() const { return compute_status_; }
+	StoreStatus get_store_status() const { return store_status_; }
+
+	void set_compute_status(ComputeStatus status) { compute_status_ = status; }
+	void set_store_status(StoreStatus status) { store_status_ = status; }
+
+private:
+	void set_id(unsigned int id) { id_ = id; }
+
+private:
+	unsigned int id_;
+	ComputeStatus compute_status_;
+	StoreStatus store_status_;
+};
+
+class ComputeNode
+{
+public:
+	enum NodeStatus { kFree = 0, kInComputing, kBreakdown };
+
+public:
+	ComputeNode() : node_id_(0), node_status_(kFree) {}
+	explicit ComputeNode(unsigned int id) : node_id_(id), node_status_(kFree)
+	{
+		heartbeat_ = s_clock();
+		expiry_ = heartbeat_ + 5 * 60 * 1000; // heartbeat moment + 5 mins
 	}
-}
 
-//  Pop next available worker off queue, return identity
-static std::string
-s_worker_dequeue(std::vector<worker_t> &queue)
+	unsigned int get_node_id() const { return node_id_; }
+	NodeStatus get_node_status() const { return node_status_; }
+	Task get_task() const { return task_; }
+	int64_t get_heartbeat() const { return heartbeat_; }
+	int64_t get_expiry() const { return expiry_; }
+
+	void set_node_id(unsigned int id) { node_id_ = id; }
+	void set_node_status(NodeStatus status) { node_status_ = status; }
+	void set_task(Task task) { task_ = task; }
+	void set_heartbeat(int64_t heartbeat) { heartbeat_ = heartbeat; }
+	void set_expiry(int64_t expiry) { expiry_ = expiry; }
+
+private:
+	unsigned int node_id_;
+	NodeStatus node_status_;
+	Task task_;
+	int64_t heartbeat_;
+	int64_t expiry_;
+};
+
+int main()
 {
-	assert(queue.size());
-	std::string identity = queue[0].identity;
-	queue.erase(queue.begin());
-	return identity;
-}
-
-//  Look for & kill expired workers
-static void
-s_queue_purge(std::vector<worker_t> &queue)
-{
-	int64_t clock = s_clock();
-	for (std::vector<worker_t>::iterator it = queue.begin(); it < queue.end(); it++) {
-		if (clock > it->expiry) {
-			it = queue.erase(it) - 1;
-		}
-	}
-}
-
-int main(void)
-{
-	s_version_assert(4, 0);
-
-	//  Prepare our context and sockets
 	zmq::context_t context(1);
-	zmq::socket_t frontend(context, ZMQ_ROUTER);
-	zmq::socket_t backend(context, ZMQ_ROUTER);
-	frontend.bind("tcp://*:5555");    //  For clients
-	backend.bind("tcp://*:5556");    //  For workers
+	zmq::socket_t recv_heartbeat(context, ZMQ_PULL);
+	recv_heartbeat.bind("tcp://127.0.0.1:1217");
 
-	//  Queue of available workers
-	std::vector<worker_t> queue;
+	//create a client vector or something
+	const int node_num = 5;
+	std::thread heartbeat_threads[node_num];
+	std::map<uint32_t, ComputeNode> clients;
 
-	//  Send out heartbeats at regular intervals
-	int64_t heartbeat_at = s_clock() + HEARTBEAT_INTERVAL;
-
-	while (1) {
-		zmq::pollitem_t items[] = {
-			{ static_cast<void*>(backend), 0, ZMQ_POLLIN, 0 },
-			{ static_cast<void*>(frontend), 0, ZMQ_POLLIN, 0 }
-		};
-		//  Poll frontend only if we have available workers
-		if (queue.size()) {
-			zmq::poll(items, 2, HEARTBEAT_INTERVAL);
-		}
-		else {
-			zmq::poll(items, 1, HEARTBEAT_INTERVAL);
-		}
-
-		//  Handle worker activity on backend
-		if (items[0].revents & ZMQ_POLLIN) {
-			zmsg msg(backend);
-			std::string identity(msg.unwrap());
-
-			//  Return reply to client if it's not a control message
-			if (msg.parts() == 1) {
-				if (strcmp(msg.address(), "READY") == 0) {
-					s_worker_delete(queue, identity);
-					s_worker_append(queue, identity);
-				}
-				else {
-					if (strcmp(msg.address(), "HEARTBEAT") == 0) {
-						s_worker_refresh(queue, identity);
-					}
-					else {
-						std::cout << "E: invalid message from " << identity << std::endl;
-						msg.dump();
-					}
-				}
-			}
-			else {
-				msg.send(frontend);
-				s_worker_append(queue, identity);
-			}
-		}
-		if (items[1].revents & ZMQ_POLLIN) {
-			//  Now get next client request, route to next worker
-			zmsg msg(frontend);
-			std::string identity = std::string(s_worker_dequeue(queue));
-			msg.push_front((char*)identity.c_str());
-			msg.send(backend);
-		}
-
-		//  Send heartbeats to idle workers if it's time
-		if (s_clock() > heartbeat_at) {
-			for (std::vector<worker_t>::iterator it = queue.begin(); it < queue.end(); it++) {
-				zmsg msg("HEARTBEAT");
-				msg.wrap(it->identity.c_str(), NULL);
-				msg.send(backend);
-			}
-			heartbeat_at = s_clock() + HEARTBEAT_INTERVAL;
-		}
-		s_queue_purge(queue);
+	for (int i = 1; i <= node_num; ++i) {
+		heartbeat_threads[i - 1] = std::thread(send_heartbeat, std::ref(context), i);
+		clients[i] = ComputeNode(i);
 	}
-	//  We never exit the main loop
-	//  But pretend to do the right shutdown anyhow
-	queue.clear();
+
+	int id;
+	int count = 0;
+	int64_t this_moment;
+	const int64_t five_minutes_in_milliseconds = 300000;
+	std::string heartbeat_signal;
+	ComputeNode a_client;
+
+	while (true) {
+		auto raw_signal = s_recv(recv_heartbeat);
+
+		// TODO : if not a valid signal, then continue
+
+		std::tie(id, heartbeat_signal) = decode_signal(raw_signal);
+
+		// find client correspond to the signal
+		a_client = clients[id];
+
+		if (heartbeat_signal == "HEARTBEAT") {
+			this_moment = s_clock();
+			a_client.set_heartbeat(this_moment);
+			a_client.set_expiry(this_moment + five_minutes_in_milliseconds);
+			std::cout << "Received heartbeat from node " << id << ": " << count << std::endl;
+			std::cout << "Heartbeat: " << a_client.get_heartbeat() << std::endl;
+			std::cout << "Expiry:    " << a_client.get_expiry() << std::endl;
+			count++;
+		}
+
+		// 遍历所有clients，判断是否有超时的client，将其从队列中剔除
+		std::map<uint32_t, ComputeNode>::iterator iter;
+		for (iter = clients.begin(); iter != clients.end(); iter++) {
+			if (node_is_expiry()) {
+				iter->second.set_node_status(ComputeNode::kBreakdown);
+			}
+		}
+
+		//std::this_thread::sleep_for(std::chrono::milliseconds(500));
+	}
+
+	//heartbeat_thread1.join();
+	//heartbeat_thread2.join();
+
 	return 0;
 }
