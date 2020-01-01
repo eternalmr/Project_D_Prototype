@@ -1,16 +1,11 @@
 #pragma warning(disable:4996)
 
 #include <thread>
-#include "zhelpers.hpp"
 #include <regex>
-#include <vector>
-#include <iterator>
 #include <map>
+#include "zhelpers.hpp"
 
-#define HEARTBEAT_LIVENESS  3       //  3-5 is reasonable
 #define HEARTBEAT_INTERVAL  2000    //  msecs
-#define INTERVAL_INIT       1000    //  Initial reconnect
-#define INTERVAL_MAX       32000    //  After exponential back off
 
 using std::endl;
 using std::cout;
@@ -19,8 +14,8 @@ using std::cout;
    用delim指定的正则表达式将字符串in分割，返回分割后的字符串数组
    delim 分割字符串的正则表达式
 */
-std::vector<std::string> s_split(const std::string& in,
-	const std::string& delim)
+std::vector<std::string> split_string(const std::string& in,
+									  const std::string& delim)
 {
 	std::regex re{ delim };
 
@@ -32,26 +27,13 @@ std::vector<std::string> s_split(const std::string& in,
 
 std::tuple<int, std::string> decode_signal(std::string &raw_signal)
 {
-	auto signal = s_split(raw_signal, "_"); // TODO : use std::tuple to seperate signals
+	auto signal = split_string(raw_signal, "_"); // TODO : use std::tuple to seperate signals
 	return std::make_tuple(std::stoi(signal[1]), signal[0]);
 }
 
-bool node_is_expiry()
+bool node_is_expiry() // TODO
 {
 	return false;
-}
-
-void send_heartbeat(zmq::context_t &context, unsigned int client_id)
-{
-	zmq::socket_t heartbeat_sender(context, ZMQ_PUSH);
-	heartbeat_sender.connect("tcp://127.0.0.1:1217");
-
-	std::string signal = "HEARTBEAT_" + std::to_string(client_id);
-	// send heartbeat at regular interval
-	while (true) {
-		s_send(heartbeat_sender, signal);
-		std::this_thread::sleep_for(std::chrono::milliseconds(HEARTBEAT_INTERVAL));
-	}
 }
 
 class Task
@@ -129,16 +111,15 @@ private:
 int main()
 {
 	zmq::context_t context(1);
-	zmq::socket_t recv_heartbeat(context, ZMQ_PULL);
-	recv_heartbeat.bind("tcp://127.0.0.1:1217");
+	zmq::socket_t heartbeat_receiver(context, ZMQ_PULL);
+	heartbeat_receiver.bind("tcp://127.0.0.1:1217");
 
 	//create a client vector or something
 	const int node_num = 5;
-	std::thread heartbeat_threads[node_num];
 	std::map<uint32_t, ComputeNode> clients;
 
+	// TODO : how to dynamically add client to client pool
 	for (int i = 1; i <= node_num; ++i) {
-		heartbeat_threads[i - 1] = std::thread(send_heartbeat, std::ref(context), i);
 		clients[i] = ComputeNode(i);
 	}
 
@@ -150,7 +131,7 @@ int main()
 	ComputeNode a_client;
 
 	while (true) {
-		auto raw_signal = s_recv(recv_heartbeat);
+		auto raw_signal = s_recv(heartbeat_receiver);
 
 		// TODO : if not a valid signal, then continue
 
@@ -179,9 +160,6 @@ int main()
 
 		//std::this_thread::sleep_for(std::chrono::milliseconds(500));
 	}
-
-	//heartbeat_thread1.join();
-	//heartbeat_thread2.join();
 
 	return 0;
 }
