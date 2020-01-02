@@ -5,30 +5,28 @@
 #include <map>
 #include "zhelpers.hpp"
 
-#define HEARTBEAT_INTERVAL  2000    //  msecs
+const int HEARTBEAT_INTERVAL = 2000;      //  millisecond
+const int HEARTBEAT_TIMEOUT  = 300000;    //  millisecond
 
 using std::endl;
 using std::cout;
+using std::string;
 
-/*
-   用delim指定的正则表达式将字符串in分割，返回分割后的字符串数组
-   delim 分割字符串的正则表达式
-*/
-std::vector<std::string> split_string(const std::string& in,
-									  const std::string& delim)
+//用delim指定的正则表达式将字符串in分割，返回分割后的字符串数组
+//delim 分割字符串的正则表达式
+std::vector<string> split_string(const string& in, const string& delim)
 {
 	std::regex re{ delim };
-
-	return std::vector<std::string> {
-		std::sregex_token_iterator(in.begin(), in.end(), re, -1),
+	return std::vector<string> {
+			std::sregex_token_iterator(in.begin(), in.end(), re, -1),
 			std::sregex_token_iterator()
 	};
 }
 
-std::tuple<int, std::string> decode_signal(std::string &raw_signal)
+std::tuple<int, string> decode_signal(string &raw_signal)
 {
-	auto signal = split_string(raw_signal, "_"); // TODO : use std::tuple to seperate signals
-	return std::make_tuple(std::stoi(signal[1]), signal[0]);
+	auto signal = split_string(raw_signal, "_");
+	return std::make_tuple(std::stoi(signal[1]), signal[0]);//output is [client_id, signal]
 }
 
 bool node_is_expiry() // TODO
@@ -75,17 +73,17 @@ private:
 	StoreStatus store_status_;
 };
 
-class ComputeNode
+class Client
 {
 public:
 	enum NodeStatus { kFree = 0, kInComputing, kBreakdown };
 
 public:
-	ComputeNode() : node_id_(0), node_status_(kFree) {}
-	explicit ComputeNode(unsigned int id) : node_id_(id), node_status_(kFree)
+	Client() : node_id_(0), node_status_(kFree) {}
+	explicit Client(unsigned int id) : node_id_(id), node_status_(kFree)
 	{
 		heartbeat_ = s_clock();
-		expiry_ = heartbeat_ + 5 * 60 * 1000; // heartbeat moment + 5 mins
+		expiry_ = heartbeat_ + 300000; // heartbeat moment + 5 mins
 	}
 
 	unsigned int get_node_id() const { return node_id_; }
@@ -101,34 +99,48 @@ public:
 	void set_expiry(int64_t expiry) { expiry_ = expiry; }
 
 private:
-	unsigned int node_id_;
+	uint32_t node_id_;
 	NodeStatus node_status_;
 	Task task_;
 	int64_t heartbeat_;
 	int64_t expiry_;
 };
 
+void update_client_heartbeat(Client &a_client)
+{
+	int64_t this_moment = s_clock();
+	a_client.set_heartbeat(this_moment);
+	a_client.set_expiry(this_moment + HEARTBEAT_TIMEOUT);
+}
+
+void delete_breakdown_client(std::map<uint32_t, Client> &clients)
+{
+	std::map<uint32_t, Client>::iterator iter;
+	for (iter = clients.begin(); iter != clients.end(); iter++) {
+		if (node_is_expiry()) {
+			iter->second.set_node_status(Client::kBreakdown);
+		}
+	}
+}
+
 int main()
 {
+	int id;
+	string heartbeat_signal;
+	typedef std::map<uint32_t, Client> ClientMap;
+
 	zmq::context_t context(1);
 	zmq::socket_t heartbeat_receiver(context, ZMQ_PULL);
 	heartbeat_receiver.bind("tcp://127.0.0.1:1217");
 
 	//create a client vector or something
 	const int node_num = 5;
-	std::map<uint32_t, ComputeNode> clients;
+	ClientMap clients;
 
 	// TODO : how to dynamically add client to client pool
 	for (int i = 1; i <= node_num; ++i) {
-		clients[i] = ComputeNode(i);
+		clients[i] = Client(i);
 	}
-
-	int id;
-	int count = 0;
-	int64_t this_moment;
-	const int64_t five_minutes_in_milliseconds = 300000;
-	std::string heartbeat_signal;
-	ComputeNode a_client;
 
 	while (true) {
 		auto raw_signal = s_recv(heartbeat_receiver);
@@ -137,28 +149,15 @@ int main()
 
 		std::tie(id, heartbeat_signal) = decode_signal(raw_signal);
 
-		// find client correspond to the signal
-		a_client = clients[id];
-
-		if (heartbeat_signal == "HEARTBEAT") {
-			this_moment = s_clock();
-			a_client.set_heartbeat(this_moment);
-			a_client.set_expiry(this_moment + five_minutes_in_milliseconds);
-			std::cout << "Received heartbeat from node " << id << ": " << count << std::endl;
-			std::cout << "Heartbeat: " << a_client.get_heartbeat() << std::endl;
-			std::cout << "Expiry:    " << a_client.get_expiry() << std::endl;
-			count++;
+		if (heartbeat_signal != "HEARTBEAT") {
+			cout << "unknown signal" << endl;
+			continue;
 		}
+
+		update_client_heartbeat(clients[id]);
 
 		// 遍历所有clients，判断是否有超时的client，将其从队列中剔除
-		std::map<uint32_t, ComputeNode>::iterator iter;
-		for (iter = clients.begin(); iter != clients.end(); iter++) {
-			if (node_is_expiry()) {
-				iter->second.set_node_status(ComputeNode::kBreakdown);
-			}
-		}
-
-		//std::this_thread::sleep_for(std::chrono::milliseconds(500));
+		delete_breakdown_client(clients);
 	}
 
 	return 0;
