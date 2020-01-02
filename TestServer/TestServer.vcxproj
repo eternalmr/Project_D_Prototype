@@ -127,7 +127,15 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="server.cpp" />
+    <ClCompile Include="client.cpp" />
+    <ClCompile Include="server_main.cpp" />
+    <ClCompile Include="server_functions.cpp" />
+    <ClCompile Include="task.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="client.h" />
+    <ClInclude Include="server_functions.h" />
+    <ClInclude Include="task.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
