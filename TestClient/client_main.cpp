@@ -2,8 +2,9 @@
 
 #include "client_functions.h"
 
-using std::endl;
-using std::cout;
+extern int start_flag = 0;
+extern int pause_flag = 0;
+extern int stop_flag = 0;
 
 int main(int argc, char* argv[])
 {
@@ -65,6 +66,7 @@ int main(int argc, char* argv[])
 	}//end of while
 
 	simulation_thread.join();
+	heartbeat_thread.join();
 
 	system("pause");
 	return 0;

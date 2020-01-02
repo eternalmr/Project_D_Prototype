@@ -13,9 +13,9 @@ enum SignalSet {
 	kContinue = 444, kUnknow = 555
 };
 
-int start_flag = 0;
-int pause_flag = 0;
-int  stop_flag = 0;
+extern int start_flag;
+extern int pause_flag;
+extern int stop_flag;
 
 int simulation_wrap(zmq::context_t &);
 int simulation(int);
