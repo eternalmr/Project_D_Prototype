@@ -17,7 +17,7 @@ int main(int argc, char* argv[])
 	// initialize client socket
 	zmq::context_t context(1);
 	zmq::socket_t client_socket(context, ZMQ_SUB);
-	client_socket.connect("tcp://192.168.100.239:5555");
+	client_socket.connect("tcp://localhost:5555");
 	subscribe_specific_signal(client_socket);
 
 	// start simulation and heartbeat thread

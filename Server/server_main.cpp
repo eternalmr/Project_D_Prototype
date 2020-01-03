@@ -12,7 +12,7 @@ int main()
 	//  initialize control socket
 	zmq::context_t context(1);
 	zmq::socket_t control_sender(context, ZMQ_PUB);
-	control_sender.bind("tcp://192.168.100.239:5555");
+	control_sender.bind("tcp://*:5555");
 
 	// initialize task queue
 	int task_num = 10;

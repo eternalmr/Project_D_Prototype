@@ -3,16 +3,16 @@
 #include "server_functions.h"
 #include <algorithm>
 
-Task get_undo_task(std::vector<Task> &task_queue)
-{
-
-}
+//Task get_undo_task(std::vector<Task> &task_queue)
+//{
+//
+//}
 
 int assign_tasks(zmq::context_t &context, 
 				 ClientMap &clients, std::vector<Task> &task_queue)
 {
 	zmq::socket_t task_assigner(context, ZMQ_REP);
-	task_assigner.bind("tcp://192.168.100.239:5560");
+	task_assigner.bind("tcp://*:5560");
 
 	int workload = 0;
 	Task a_task;
@@ -95,7 +95,7 @@ void receive_heartbeat(zmq::context_t &context, ClientMap &clients)
 	string heartbeat_signal;
 
 	zmq::socket_t heartbeat_receiver(context, ZMQ_PULL);
-	heartbeat_receiver.bind("tcp://127.0.0.1:1217");
+	heartbeat_receiver.bind("tcp://*:1217");
 
 	while (true) {
 		auto raw_signal = s_recv(heartbeat_receiver);

@@ -17,7 +17,7 @@ void subscribe_specific_signal(zmq::socket_t &socket)
 void send_heartbeat(zmq::context_t &context, uint32_t client_id)
 {
 	zmq::socket_t heartbeat_sender(context, ZMQ_PUSH);
-	heartbeat_sender.connect("tcp://127.0.0.1:1217");
+	heartbeat_sender.connect("tcp://localhost:1217");
 
 	std::string signal = "HEARTBEAT_" + std::to_string(client_id);
 	// send heartbeat at regular interval
@@ -36,7 +36,7 @@ int simulation_wrap(zmq::context_t &context)
 
 	// initialize task requester and result sender
 	zmq::socket_t task_requester(context, ZMQ_REQ);
-	task_requester.connect("tcp://192.168.100.239:5560");
+	task_requester.connect("tcp://localhost:5560");
 	zmq::socket_t result_sender(context, ZMQ_PUSH);
 	result_sender.connect("tcp://localhost:5558");
 
