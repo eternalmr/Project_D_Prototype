@@ -1,6 +1,12 @@
 #pragma warning(disable:4996)
 
 #include "server_functions.h"
+#include <algorithm>
+
+Task get_undo_task(std::vector<Task> &task_queue)
+{
+
+}
 
 int assign_tasks(zmq::context_t &context, 
 				 ClientMap &clients, std::vector<Task> &task_queue)
