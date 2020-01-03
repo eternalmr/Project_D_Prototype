@@ -71,12 +71,12 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>E:\Some Code\C++ program\libzmq-v141-x64-4_3_2\include;$(IncludePath)</IncludePath>
-    <LibraryPath>E:\Some Code\C++ program\libzmq-v141-x64-4_3_2\lib;$(LibraryPath)</LibraryPath>
+    <IncludePath>$(SolutionDir)3rd_party\libzmq\include;$(IncludePath)</IncludePath>
+    <LibraryPath>$(SolutionDir)3rd_party\libzmq\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>E:\Some Code\C++ program\libzmq-v141-x64-4_3_2\include;$(IncludePath)</IncludePath>
-    <LibraryPath>E:\Some Code\C++ program\libzmq-v141-x64-4_3_2\lib;$(LibraryPath)</LibraryPath>
+    <IncludePath>$(SolutionDir)3rd_party\libzmq\include;$(IncludePath)</IncludePath>
+    <LibraryPath>$(SolutionDir)3rd_party\libzmq\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
