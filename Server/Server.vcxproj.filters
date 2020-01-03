@@ -18,13 +18,13 @@
     <ClCompile Include="server_functions.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="task.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="client.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
     <ClCompile Include="server_main.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="client_class.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="task_class.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
@@ -32,10 +32,10 @@
     <ClInclude Include="server_functions.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="task.h">
+    <ClInclude Include="client_class.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="client.h">
+    <ClInclude Include="task_class.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

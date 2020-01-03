@@ -2,28 +2,42 @@
 
 #include "server_functions.h"
 
-int assign_tasks(zmq::context_t &context)
+int assign_tasks(zmq::context_t &context, std::vector<Task> &task_queue)
 {
-	zmq::socket_t server(context, ZMQ_REP);
-	server.bind("tcp://192.168.100.239:5560");
-
-	// TODO : create task pool
+	zmq::socket_t task_assigner(context, ZMQ_REP);
+	task_assigner.bind("tcp://192.168.100.239:5560");
 
 	// TODO : create worker queue
+	int max_client_num = 10;
 
 	int workload = 0;
-	while (true) { // while tasks not finished
+	for (Task a_task : task_queue)
+	{
 		// TODO : a_free_worker = get_free_worker(workers queue)
 
 		// TODO : a_undo_task = get_undo_task(tasks pool)
+		workload = a_task.get_id();
 
 		// TODO : assign_task_to(a_free_worker, a_undo_task)
 
-		std::string reply = s_recv(server);
+		std::string reply = s_recv(task_assigner);
 		cout << "Receive request: " << reply << endl;
-		s_send(server, std::to_string(workload));
-		workload++;
+		s_send(task_assigner, std::to_string(workload));
 	}
+
+	//while (task_queue.size() != 0) { // while tasks not finished
+	//	// TODO : a_free_worker = get_free_worker(workers queue)
+
+	//	// TODO : a_undo_task = get_undo_task(tasks pool)
+	//	Task a_undo_task = task_queue.at(0);
+	//	workload = a_undo_task.get_id();
+
+	//	// TODO : assign_task_to(a_free_worker, a_undo_task)
+
+	//	std::string reply = s_recv(task_assigner);
+	//	cout << "Receive request: " << reply << endl;
+	//	s_send(task_assigner, std::to_string(workload));
+	//}
 
 	return 0;
 }
@@ -72,9 +86,9 @@ void update_client_heartbeat(Client &a_client)
 		 << a_client.get_heartbeat() << endl;
 }
 
-void delete_breakdown_client(std::map<uint32_t, Client> &clients)
+void mark_breakdown_client(std::map<uint32_t, Client> &clients)
 {
-	std::map<uint32_t, Client>::iterator iter;
+	ClientMap::iterator iter;
 	for (iter = clients.begin(); iter != clients.end(); iter++) {
 		if (node_is_expiry()) {
 			iter->second.set_node_status(Client::kBreakdown);
@@ -82,23 +96,13 @@ void delete_breakdown_client(std::map<uint32_t, Client> &clients)
 	}
 }
 
-void receive_heartbeat(zmq::context_t &context)
+void receive_heartbeat(zmq::context_t &context, ClientMap &clients)
 {
 	int id;
 	string heartbeat_signal;
-	typedef std::map<uint32_t, Client> ClientMap;
 
 	zmq::socket_t heartbeat_receiver(context, ZMQ_PULL);
 	heartbeat_receiver.bind("tcp://127.0.0.1:1217");
-
-	//create a client vector or something
-	const int node_num = 5;
-	ClientMap clients;
-
-	// TODO : how to dynamically add client to client pool
-	for (int i = 1; i <= node_num; ++i) {
-		clients[i] = Client(i);
-	}
 
 	while (true) {
 		auto raw_signal = s_recv(heartbeat_receiver);
@@ -112,10 +116,9 @@ void receive_heartbeat(zmq::context_t &context)
 			continue;
 		}
 
-
 		update_client_heartbeat(clients[id]);
 
 		// 遍历所有clients，判断是否有超时的client，将其从队列中剔除
-		delete_breakdown_client(clients);
+		mark_breakdown_client(clients);
 	}
 }

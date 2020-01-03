@@ -93,7 +93,7 @@ int simulation(int input)
 
 		if (has_reached_endpoint(input, result)) {
 			stop_flag = 1;
-			cout << "simulation finished!" << endl;
+			cout << "Task finished!" << endl;
 			break;
 		}
 	}

@@ -1,7 +1,7 @@
 #pragma once
 #pragma warning(disable:4996)
 
-#include "task.h"
+#include "task_class.h"
 #include "zhelpers.hpp"
 
 class Client

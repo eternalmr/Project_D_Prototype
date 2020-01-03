@@ -1,6 +1,6 @@
 #pragma warning(disable:4996)
 
-#include "task.h"
+#include "task_class.h"
 
 // constructors
 Task::Task()

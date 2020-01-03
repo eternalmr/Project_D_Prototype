@@ -4,7 +4,7 @@
 #include <thread>
 #include <regex>
 #include <map>
-#include "client.h"
+#include "client_class.h"
 
 const int HEARTBEAT_INTERVAL = 2000;      //  millisecond
 const int HEARTBEAT_TIMEOUT = 300000;    //  millisecond
@@ -13,7 +13,9 @@ using std::endl;
 using std::cout;
 using std::string;
 
-int assign_tasks(zmq::context_t &context);
+typedef std::map<uint32_t, Client> ClientMap;
+
+int assign_tasks(zmq::context_t &context, std::vector<Task> &task_queue);
 int collect_result(zmq::context_t &context);
 
 //用delim指定的正则表达式将字符串in分割，返回分割后的字符串数组
@@ -26,6 +28,6 @@ bool node_is_expiry(); // TODO
 
 void update_client_heartbeat(Client &a_client);
 
-void delete_breakdown_client(std::map<uint32_t, Client> &clients);
+void mark_breakdown_client(std::map<uint32_t, Client> &clients);
 
-void receive_heartbeat(zmq::context_t &context);
+void receive_heartbeat(zmq::context_t &context, ClientMap &clients);

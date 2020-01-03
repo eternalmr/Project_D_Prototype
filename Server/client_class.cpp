@@ -1,6 +1,6 @@
 #pragma warning(disable:4996)
 
-#include "client.h"
+#include "client_class.h"
 
 // constructor
 Client::Client() : node_id_(0), node_status_(kFree) {}

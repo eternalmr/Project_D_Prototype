@@ -127,15 +127,15 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="client.cpp" />
+    <ClCompile Include="client_class.cpp" />
     <ClCompile Include="server_main.cpp" />
     <ClCompile Include="server_functions.cpp" />
-    <ClCompile Include="task.cpp" />
+    <ClCompile Include="task_class.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="client.h" />
+    <ClInclude Include="client_class.h" />
     <ClInclude Include="server_functions.h" />
-    <ClInclude Include="task.h" />
+    <ClInclude Include="task_class.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
