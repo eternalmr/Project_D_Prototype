@@ -31,15 +31,16 @@ void send_heartbeat(zmq::context_t &context, uint32_t client_id)
 
 int simulation_wrap(zmq::context_t &context)
 {
+	int task_input;
+	int result;
+
+	// initialize task requester and result sender
 	zmq::socket_t task_requester(context, ZMQ_REQ);
 	task_requester.connect("tcp://192.168.100.239:5560");
-
 	zmq::socket_t result_sender(context, ZMQ_PUSH);
 	result_sender.connect("tcp://localhost:5558");
 
-	int task_input;
-	int result;
-	while (true) {
+	while (simulation_is_not_finished()) {
 		// Send ready to server
 		s_send(task_requester, "ready");
 
@@ -48,7 +49,7 @@ int simulation_wrap(zmq::context_t &context)
 		std::cout << "**********************************************" << std::endl;
 		std::cout << "Receive a new task: " << new_task << std::endl;
 
-		// Do some 'work'
+		// Do some work
 		stop_flag = 0; //reset stop flag
 		task_input = atoi(new_task.c_str());
 		result = simulation(task_input);
@@ -59,12 +60,12 @@ int simulation_wrap(zmq::context_t &context)
 		}
 
 		//  Send results to sink
-		std::string result_info = "result of task " + new_task
-			+ " is: " + std::to_string(result);
+		std::string result_info = "result of task[" + new_task
+			+ "] is: " + std::to_string(result);
 		s_send(result_sender, result_info);
 
 		std::cout << "**********************************************" << std::endl;
-	}
+	}//end of while
 
 	task_requester.close();
 	return 0;
@@ -98,6 +99,11 @@ int simulation(int input)
 	}
 
 	return result;
+}
+
+bool simulation_is_not_finished()
+{
+	return true;
 }
 
 SignalSet listen_from_server(zmq::socket_t &socket)
