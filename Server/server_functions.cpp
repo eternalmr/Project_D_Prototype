@@ -2,42 +2,31 @@
 
 #include "server_functions.h"
 
-int assign_tasks(zmq::context_t &context, std::vector<Task> &task_queue)
+int assign_tasks(zmq::context_t &context, 
+				 ClientMap &clients, std::vector<Task> &task_queue)
 {
 	zmq::socket_t task_assigner(context, ZMQ_REP);
 	task_assigner.bind("tcp://192.168.100.239:5560");
 
-	// TODO : create worker queue
-	int max_client_num = 10;
-
 	int workload = 0;
-	for (Task a_task : task_queue)
-	{
-		// TODO : a_free_worker = get_free_worker(workers queue)
-
+	Task a_task;
+	while (task_queue.size() != 0) {
 		// TODO : a_undo_task = get_undo_task(tasks pool)
+		a_task = task_queue.back();
+		task_queue.pop_back();
+
 		workload = a_task.get_id();
+		//a_task.set_compute_status(Task::kInComputing);
+
+		// TODO : a_free_worker = get_free_worker(workers queue)
 
 		// TODO : assign_task_to(a_free_worker, a_undo_task)
 
 		std::string reply = s_recv(task_assigner);
 		cout << "Receive request: " << reply << endl;
+
 		s_send(task_assigner, std::to_string(workload));
 	}
-
-	//while (task_queue.size() != 0) { // while tasks not finished
-	//	// TODO : a_free_worker = get_free_worker(workers queue)
-
-	//	// TODO : a_undo_task = get_undo_task(tasks pool)
-	//	Task a_undo_task = task_queue.at(0);
-	//	workload = a_undo_task.get_id();
-
-	//	// TODO : assign_task_to(a_free_worker, a_undo_task)
-
-	//	std::string reply = s_recv(task_assigner);
-	//	cout << "Receive request: " << reply << endl;
-	//	s_send(task_assigner, std::to_string(workload));
-	//}
 
 	return 0;
 }
@@ -72,26 +61,24 @@ std::tuple<int, string> decode_signal(string &raw_signal)
 	return std::make_tuple(std::stoi(signal[1]), signal[0]);//output is [client_id, signal]
 }
 
-bool node_is_expiry() // TODO
-{
-	return false;
-}
-
 void update_client_heartbeat(Client &a_client)
 {
 	int64_t this_moment = s_clock();
 	a_client.set_heartbeat(this_moment);
-	a_client.set_expiry(this_moment + HEARTBEAT_TIMEOUT);
+	//a_client.set_expiry(this_moment + HEARTBEAT_TIMEOUT);
 	cout << "Heartbeat of node[" << a_client.get_node_id() << "] : " 
 		 << a_client.get_heartbeat() << endl;
 }
 
-void mark_breakdown_client(std::map<uint32_t, Client> &clients)
+void mark_breakdown_client(ClientMap &clients)
 {
 	ClientMap::iterator iter;
+	
 	for (iter = clients.begin(); iter != clients.end(); iter++) {
-		if (node_is_expiry()) {
-			iter->second.set_node_status(Client::kBreakdown);
+		Client &a_client = iter->second;
+		if (a_client.is_expiry() && !a_client.is_breakdown()) {//TODO : 有问题
+			a_client.set_breakdown();
+			cout << "client[" << a_client.get_node_id() << "] is breakdown!" << endl;
 		}
 	}
 }
@@ -118,7 +105,7 @@ void receive_heartbeat(zmq::context_t &context, ClientMap &clients)
 
 		update_client_heartbeat(clients[id]);
 
-		// 遍历所有clients，判断是否有超时的client，将其从队列中剔除
+		// go through all clients, mark breakdown client
 		mark_breakdown_client(clients);
 	}
 }

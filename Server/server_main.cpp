@@ -17,12 +17,12 @@ int main()
 	// initialize task queue
 	int task_num = 10;
 	std::vector<Task> task_queue;
-	for (int i = 1; i <= task_num; ++i) {
+	for (int i = task_num; i >= 1; --i) {
 		task_queue.push_back(Task(i));
 	}
 
 	// initialize client queue
-	int max_client_num = 10;
+	int max_client_num = 2;
 	ClientMap clients;
 	for (int i = 1; i <= max_client_num; ++i) {
 		clients[i] = Client(i);
@@ -30,7 +30,7 @@ int main()
 
 	// start task, heartbeat and result threads 
 	std::thread task_thread(assign_tasks, std::ref(context), 
-							std::ref(task_queue));
+							std::ref(clients), std::ref(task_queue));
 	std::thread result_thread(collect_result, std::ref(context));
 	std::thread heartbeat_thread(receive_heartbeat, std::ref(context), 
 								 std::ref(clients));

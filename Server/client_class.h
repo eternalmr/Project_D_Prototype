@@ -17,19 +17,20 @@ public:
 	NodeStatus get_node_status() const;
 	Task get_task() const;
 	int64_t get_heartbeat() const;
-	int64_t get_expiry() const;
 
 	void set_node_id(unsigned int id);
 	void set_node_status(NodeStatus status);
 	void set_task(Task task);
 	void set_heartbeat(int64_t heartbeat);
-	void set_expiry(int64_t expiry);
+	void set_breakdown();
+
+	bool is_expiry();
+	bool is_breakdown();
 
 private:
 	uint32_t node_id_;
 	NodeStatus node_status_;
 	Task task_;
 	int64_t heartbeat_;
-	int64_t expiry_;
 };
 

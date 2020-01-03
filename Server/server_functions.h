@@ -15,7 +15,7 @@ using std::string;
 
 typedef std::map<uint32_t, Client> ClientMap;
 
-int assign_tasks(zmq::context_t &context, std::vector<Task> &task_queue);
+int assign_tasks(zmq::context_t &context, ClientMap &clients, std::vector<Task> &task_queue);
 int collect_result(zmq::context_t &context);
 
 //用delim指定的正则表达式将字符串in分割，返回分割后的字符串数组
@@ -24,10 +24,8 @@ std::vector<string> split_string(const string& in, const string& delim);
 
 std::tuple<int, string> decode_signal(string &raw_signal);
 
-bool node_is_expiry(); // TODO
-
 void update_client_heartbeat(Client &a_client);
 
-void mark_breakdown_client(std::map<uint32_t, Client> &clients);
+void mark_breakdown_client(ClientMap &clients);
 
 void receive_heartbeat(zmq::context_t &context, ClientMap &clients);

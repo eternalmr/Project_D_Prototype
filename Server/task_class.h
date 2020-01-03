@@ -3,7 +3,7 @@
 
 class Task
 {
-private:
+public:
 	enum ComputeStatus { kNotStart = 0, kInComputing, kFinished };
 	enum   StoreStatus { kNotSave = 0, kSaved };
 
