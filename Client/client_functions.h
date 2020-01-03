@@ -24,3 +24,4 @@ bool is_irrelevant(SignalSet);
 bool has_reached_endpoint(int, int);
 void send_heartbeat(zmq::context_t &, uint32_t);
 void subscribe_specific_signal(zmq::socket_t &socket);
+void execute_control_command(SignalSet &control_signal);

@@ -31,8 +31,8 @@ void send_heartbeat(zmq::context_t &context, uint32_t client_id)
 
 int simulation_wrap(zmq::context_t &context)
 {
-	zmq::socket_t worker(context, ZMQ_REQ);
-	worker.connect("tcp://192.168.100.239:5560");
+	zmq::socket_t task_requester(context, ZMQ_REQ);
+	task_requester.connect("tcp://192.168.100.239:5560");
 
 	zmq::socket_t result_sender(context, ZMQ_PUSH);
 	result_sender.connect("tcp://localhost:5558");
@@ -41,10 +41,10 @@ int simulation_wrap(zmq::context_t &context)
 	int result;
 	while (true) {
 		// Send ready to server
-		s_send(worker, "ready");
+		s_send(task_requester, "ready");
 
 		// Receive a task from server
-		std::string new_task = s_recv(worker);
+		std::string new_task = s_recv(task_requester);
 		std::cout << "**********************************************" << std::endl;
 		std::cout << "Receive a new task: " << new_task << std::endl;
 
@@ -66,7 +66,7 @@ int simulation_wrap(zmq::context_t &context)
 		std::cout << "**********************************************" << std::endl;
 	}
 
-	worker.close();
+	task_requester.close();
 	return 0;
 }
 
@@ -126,6 +126,37 @@ bool is_irrelevant(SignalSet signal)
 	if ((signal == kContinue) && (start_flag == 1 && pause_flag == 1))
 		return false;
 	return true;
+}
+
+void execute_control_command(SignalSet &control_signal)
+{
+	switch (control_signal) {
+	case kStart: {
+		start_flag = 1;
+		cout << "start simulation" << endl;
+		break;
+	}
+	case kContinue: {
+		pause_flag = 0;
+		cout << "continue simulation" << endl;
+		break;
+	}
+	case kPause: {
+		pause_flag = 1;
+		cout << "pause simulation" << endl;
+		break;
+	}
+	case kStop: {
+		start_flag = 0;
+		pause_flag = 0;
+		stop_flag = 1;
+		cout << "stop simulation" << endl;
+		break;
+	}
+	default: {
+		cout << "unknown command" << endl;
+	}
+	}//end of switch
 }
 
 bool has_reached_endpoint(int input, int result)
