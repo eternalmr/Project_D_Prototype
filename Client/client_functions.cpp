@@ -42,7 +42,8 @@ int simulation_wrap(zmq::context_t &context, uint32_t client_id)
 
 	while (simulation_is_not_finished()) {
 		// Send ready to server
-		s_send(task_requester, "ready");
+		// TODO : send "client_id_ready" to server
+		s_send(task_requester, std::to_string(client_id));
 
 		// Receive a task from server
 		std::string new_task = s_recv(task_requester);
