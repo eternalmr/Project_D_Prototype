@@ -15,7 +15,8 @@ using std::string;
 
 typedef std::map<uint32_t, Client> ClientMap;
 
-Task get_undo_task(std::vector<Task> &task_queue);
+bool task_is_not_start(Task &task);
+std::vector<Task>::iterator get_undo_task(std::vector<Task> &task_queue);
 int assign_tasks(zmq::context_t &context, ClientMap &clients, std::vector<Task> &task_queue);
 int collect_result(zmq::context_t &context);
 

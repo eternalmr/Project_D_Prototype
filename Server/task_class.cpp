@@ -27,4 +27,4 @@ void Task::set_id(unsigned int id) { id_ = id; }
 void Task::set_compute_status(ComputeStatus status) { compute_status_ = status; }
 void Task::set_store_status(StoreStatus status) { store_status_ = status; }
 
-
+bool Task::is_not_start() { return compute_status_ == kNotStart; }

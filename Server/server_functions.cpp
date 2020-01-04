@@ -3,10 +3,15 @@
 #include "server_functions.h"
 #include <algorithm>
 
-//Task get_undo_task(std::vector<Task> &task_queue)
-//{
-//
-//}
+bool task_is_not_start(Task &task)
+{
+	return task.is_not_start();
+}
+
+std::vector<Task>::iterator get_undo_task(std::vector<Task> &task_queue)
+{
+	return std::find_if(task_queue.begin(), task_queue.end(), task_is_not_start);
+}
 
 int assign_tasks(zmq::context_t &context, 
 				 ClientMap &clients, std::vector<Task> &task_queue)

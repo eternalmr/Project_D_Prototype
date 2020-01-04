@@ -18,6 +18,8 @@ public:
 	void set_compute_status(ComputeStatus status);
 	void set_store_status(StoreStatus status);
 
+	bool is_not_start();
+
 private:
 	void set_id(unsigned int id);
 
