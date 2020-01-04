@@ -8,40 +8,6 @@ bool task_is_not_start(Task &task)
 	return task.is_not_start();
 }
 
-std::vector<Task>::iterator get_undo_task(std::vector<Task> &task_queue)
-{
-	return std::find_if(task_queue.begin(), task_queue.end(), task_is_not_start);
-}
-
-int assign_tasks(zmq::context_t &context, 
-				 ClientMap &clients, std::vector<Task> &task_queue)
-{
-	zmq::socket_t task_assigner(context, ZMQ_REP);
-	task_assigner.bind("tcp://*:5560");
-
-	int workload = 0;
-	Task a_task;
-	while (task_queue.size() != 0) {
-		// TODO : a_undo_task = get_undo_task(tasks pool)
-		a_task = task_queue.back();
-		task_queue.pop_back();
-
-		workload = a_task.get_id();
-		//a_task.set_compute_status(Task::kInComputing);
-
-		// TODO : a_free_worker = get_free_worker(workers queue)
-
-		// TODO : assign_task_to(a_free_worker, a_undo_task)
-
-		std::string reply = s_recv(task_assigner);
-		cout << "Receive request: " << reply << endl;
-
-		s_send(task_assigner, std::to_string(workload));
-	}
-
-	return 0;
-}
-
 int collect_result(zmq::context_t &context)
 {
 	zmq::socket_t collector(context, ZMQ_PULL);
@@ -76,9 +42,54 @@ void update_client_heartbeat(Client &a_client)
 {
 	int64_t this_moment = s_clock();
 	a_client.set_heartbeat(this_moment);
-	//a_client.set_expiry(this_moment + HEARTBEAT_TIMEOUT);
-	cout << "Heartbeat of node[" << a_client.get_node_id() << "] : " 
-		 << a_client.get_heartbeat() << endl;
+	//cout << "Heartbeat of node[" << a_client.get_node_id() << "] : " 
+	//	 << a_client.get_heartbeat() << endl;
+}
+
+std::vector<Task>::iterator get_undo_task(std::vector<Task> &task_queue)
+{
+	return std::find_if(task_queue.begin(), task_queue.end(), task_is_not_start);
+}
+
+int assign_tasks(zmq::context_t &context, ClientMap &clients,
+	std::vector<Task> &task_queue)
+{
+	zmq::socket_t task_assigner(context, ZMQ_REP);
+	task_assigner.bind("tcp://*:5560");
+
+	int workload = 0;
+	std::vector<Task>::iterator it = task_queue.begin();
+	while (it != task_queue.end()) {
+		// get a undo task
+		it = get_undo_task(task_queue);
+		if (it == task_queue.end()) break;
+
+		// TODO : a_free_worker = get_free_worker(workers queue)
+		string reply = s_recv(task_assigner);
+		uint32_t client_id = stoi(reply);
+		clients[client_id].set_node_status(Client::kFree);
+		cout << "Receive request from client[" << reply << "]" << endl;
+
+		Task* ptask = clients[client_id].get_task();
+		if (ptask != nullptr && (ptask->get_compute_status() == Task::kInComputing)) {
+			ptask->set_compute_status(Task::kFinished);
+			cout << "Task[" << ptask->get_id() << "] is accomplished by client["
+				<< client_id << "]" << endl;
+		}
+
+		// TODO : assign_task_to(a_free_worker, a_undo_task)
+		clients[client_id].set_task(*it);//update clients
+		workload = it->get_id();
+		s_send(task_assigner, std::to_string(workload));
+		it->set_compute_status(Task::kInComputing);
+		clients[client_id].set_node_status(Client::kInComputing);
+		cout << "Task[" << it->get_id() << "] is assigned to client["
+			<< client_id << "]" << endl;
+	}// end of while
+
+	cout << "All tasks is finished!" << endl;
+
+	return 0;
 }
 
 void mark_breakdown_client(ClientMap &clients)
@@ -89,7 +100,12 @@ void mark_breakdown_client(ClientMap &clients)
 		Client &a_client = iter->second;
 		if (a_client.is_expiry() && !a_client.is_breakdown()) {//TODO : 有问题
 			a_client.set_breakdown();
-			cout << "client[" << a_client.get_node_id() << "] is breakdown!" << endl;
+			if (a_client.get_task()) {
+				a_client.get_task()->set_compute_status(Task::kNotStart);
+				cout << "Reset task[" << a_client.get_task()->get_id() 
+					 <<"] status to not start" << endl;
+			}
+			cout << "Client[" << a_client.get_node_id() << "] is breakdown!" << endl;
 		}
 	}
 }
@@ -104,19 +120,8 @@ void receive_heartbeat(zmq::context_t &context, ClientMap &clients)
 
 	while (true) {
 		auto raw_signal = s_recv(heartbeat_receiver);
-
-		// TODO : if not a valid signal, then continue
-
 		std::tie(id, heartbeat_signal) = decode_signal(raw_signal);
-
-		if (heartbeat_signal != "HEARTBEAT") {
-			cout << "unknown signal" << endl;
-			continue;
-		}
-
 		update_client_heartbeat(clients[id]);
-
-		// go through all clients, mark breakdown client
 		mark_breakdown_client(clients);
 	}
 }

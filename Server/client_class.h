@@ -15,7 +15,7 @@ public:
 
 	unsigned int get_node_id() const;
 	NodeStatus get_node_status() const;
-	Task get_task() const;
+	Task* get_task() const;
 	int64_t get_heartbeat() const;
 
 	void set_node_id(unsigned int id);
@@ -30,7 +30,7 @@ public:
 private:
 	uint32_t node_id_;
 	NodeStatus node_status_;
-	Task task_;
+	Task *ptask_;
 	int64_t heartbeat_;
 };
 

@@ -61,7 +61,7 @@ int simulation_wrap(zmq::context_t &context, uint32_t client_id)
 		}
 
 		//  Send results to sink
-		std::string result_info = "result of task[" + new_task
+		std::string result_info = "Result of task[" + new_task
 			+ "] is: " + std::to_string(result);
 		s_send(result_sender, result_info);
 
@@ -89,8 +89,8 @@ int simulation(int input)
 		}
 
 		result++;
-		Sleep(1000);
-		cout << "result: " << result << endl;
+		Sleep(2000);
+		cout << "Result: " << result << endl;
 
 		if (has_reached_endpoint(input, result)) {
 			stop_flag = 1;
@@ -140,28 +140,28 @@ void execute_control_command(SignalSet &control_signal)
 	switch (control_signal) {
 	case kStart: {
 		start_flag = 1;
-		cout << "start simulation" << endl;
+		cout << "Start simulation" << endl;
 		break;
 	}
 	case kContinue: {
 		pause_flag = 0;
-		cout << "continue simulation" << endl;
+		cout << "Continue simulation" << endl;
 		break;
 	}
 	case kPause: {
 		pause_flag = 1;
-		cout << "pause simulation" << endl;
+		cout << "Pause simulation" << endl;
 		break;
 	}
 	case kStop: {
 		start_flag = 0;
 		pause_flag = 0;
 		stop_flag = 1;
-		cout << "stop simulation" << endl;
+		cout << "Stop simulation" << endl;
 		break;
 	}
 	default: {
-		cout << "unknown command" << endl;
+		cout << "Unknown command" << endl;
 	}
 	}//end of switch
 }

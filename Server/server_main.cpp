@@ -9,86 +9,60 @@
 
 int main()
 {
+	// initialize control socket
+	zmq::context_t context(1);
+	zmq::socket_t control_sender(context, ZMQ_PUB);
+	control_sender.bind("tcp://*:5555");
+
 	// initialize task queue
-	int task_num = 4;
+	int task_num = 10;
 	std::vector<Task> task_queue;
 	for (int i = 0; i < task_num; ++i) {
 		task_queue.push_back(Task(i+1));
 	}
 
-	task_queue[0].set_compute_status(Task::kInComputing);
-	task_queue[1].set_compute_status(Task::kInComputing);
-	task_queue[2].set_compute_status(Task::kInComputing);
+	// initialize client queue
+	int max_client_num = 3;
+	ClientMap clients;
+	for (int i = 1; i <= max_client_num; ++i) {
+		clients[i] = Client(i);
+		if (clients[i].get_task() == nullptr) {
+			cout << "Client[" << i << "] don't get task yet" << endl;
+		}
+	}
 
-	auto it = get_undo_task(task_queue);
+	// start task, heartbeat and result threads 
+	std::thread heartbeat_thread(receive_heartbeat, std::ref(context),
+													std::ref(clients));
+	std::thread    result_thread(collect_result,	std::ref(context));
+	std::thread      task_thread(assign_tasks,		std::ref(context), 
+								 std::ref(clients), std::ref(task_queue));
 
-	if (it == task_queue.end()){
-		cout << "not find" << endl;
-	}else
-		cout << (*it).get_id()-1 << endl;
+	char command;
+	while (true) {
+		std::cout << "Please input your command: ";
+		std::cin >> command;
 
-	it->set_compute_status(Task::kInComputing);
+		if (command == 's') {
+			s_send(control_sender, "start");
+		} else if (command == 'c') {
+			s_send(control_sender, "continue");
+		} else if (command == 'p') {
+			s_send(control_sender, "pause");
+		} else if (command == 'e') {
+			s_send(control_sender, "stop");
+			std::cout << "Simulation stop!" << std::endl;
+			break;
+		} else {
+			std::cout << "Wrong command!" << std::endl;
+			continue;
+		}
+	}
 
-	cout << task_queue[3].get_compute_status() << endl;
+	task_thread.join();
+	result_thread.join();
+	heartbeat_thread.join();
 
 	system("pause");
 	return 0;
-
 }
-
-//int main()
-//{
-//	//  initialize control socket
-//	zmq::context_t context(1);
-//	zmq::socket_t control_sender(context, ZMQ_PUB);
-//	control_sender.bind("tcp://*:5555");
-//
-//	// initialize task queue
-//	int task_num = 10;
-//	std::vector<Task> task_queue;
-//	for (int i = task_num; i >= 1; --i) {
-//		task_queue.push_back(Task(i));
-//	}
-//
-//	// initialize client queue
-//	int max_client_num = 2;
-//	ClientMap clients;
-//	for (int i = 1; i <= max_client_num; ++i) {
-//		clients[i] = Client(i);
-//	}
-//
-//	// start task, heartbeat and result threads 
-//	std::thread task_thread(assign_tasks, std::ref(context), 
-//							std::ref(clients), std::ref(task_queue));
-//	std::thread result_thread(collect_result, std::ref(context));
-//	std::thread heartbeat_thread(receive_heartbeat, std::ref(context), 
-//								 std::ref(clients));
-//
-//	char command;
-//	while (true) {
-//		std::cout << "Please input your command: ";
-//		std::cin >> command;
-//
-//		if (command == 's') {
-//			s_send(control_sender, "start");
-//		} else if (command == 'c') {
-//			s_send(control_sender, "continue");
-//		} else if (command == 'p') {
-//			s_send(control_sender, "pause");
-//		} else if (command == 'e') {
-//			s_send(control_sender, "stop");
-//			std::cout << "Simulation stop!" << std::endl;
-//			break;
-//		} else {
-//			std::cout << "Wrong command!" << std::endl;
-//			continue;
-//		}
-//	}
-//
-//	task_thread.join();
-//	result_thread.join();
-//	heartbeat_thread.join();
-//
-//	system("pause");
-//	return 0;
-//}
