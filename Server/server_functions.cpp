@@ -59,7 +59,7 @@ int assign_tasks(zmq::context_t &context, ClientMap &clients,
 
 	int workload = 0;
 	std::vector<Task>::iterator it = task_queue.begin();
-	while (it != task_queue.end()) {
+	while (it != task_queue.end()) {//TODO : simulation is finished
 		// get a undo task
 		it = get_undo_task(task_queue);
 		if (it == task_queue.end()) break;
@@ -95,9 +95,9 @@ int assign_tasks(zmq::context_t &context, ClientMap &clients,
 void mark_breakdown_client(ClientMap &clients)
 {
 	ClientMap::iterator iter;
-	
-	for (iter = clients.begin(); iter != clients.end(); iter++) {
-		Client &a_client = iter->second;
+	//Client a_client;
+	//for (iter = clients.begin(); iter != clients.end(); iter++) {
+	//	 a_client = iter->second;
 		if (a_client.is_expiry() && !a_client.is_breakdown()) {//TODO : 有问题
 			a_client.set_breakdown();
 			if (a_client.get_task()) {
