@@ -21,7 +21,7 @@ int main(int argc, char* argv[])
 	subscribe_specific_signal(client_socket);
 
 	// start simulation and heartbeat thread
-	std::thread simulation_thread(simulation_wrap, std::ref(context));
+	std::thread simulation_thread(simulation_wrap, std::ref(context), client_id);
 	std::thread  heartbeat_thread(send_heartbeat,  std::ref(context), client_id);
 
 	// enter control loop 

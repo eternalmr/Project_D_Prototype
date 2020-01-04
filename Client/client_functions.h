@@ -20,7 +20,7 @@ extern int stop_flag;
 void subscribe_specific_signal(zmq::socket_t &socket);
 void send_heartbeat(zmq::context_t &, uint32_t);
 
-int simulation_wrap(zmq::context_t &);
+int simulation_wrap(zmq::context_t &context, uint32_t client_id);
 int simulation(int);
 bool simulation_is_not_finished();
 

@@ -29,7 +29,7 @@ void send_heartbeat(zmq::context_t &context, uint32_t client_id)
 	heartbeat_sender.close();
 }
 
-int simulation_wrap(zmq::context_t &context)
+int simulation_wrap(zmq::context_t &context, uint32_t client_id)
 {
 	int task_input;
 	int result;
