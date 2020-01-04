@@ -3,11 +3,6 @@
 #include "server_functions.h"
 #include <algorithm>
 
-bool task_is_not_start(Task &task)
-{
-	return task.is_not_start();
-}
-
 int collect_result(zmq::context_t &context)
 {
 	zmq::socket_t collector(context, ZMQ_PULL);
@@ -46,9 +41,16 @@ void update_client_heartbeat(Client &a_client)
 	//	 << a_client.get_heartbeat() << endl;
 }
 
-std::vector<Task>::iterator get_undo_task(std::vector<Task> &task_queue)
+Task* get_undo_task1(std::vector<Task> &task_queue)
 {
-	return std::find_if(task_queue.begin(), task_queue.end(), task_is_not_start);
+	Task *ptask = nullptr;
+	for (int i = 0; i < task_queue.size(); i++) {
+		if (task_queue[i].is_not_start()) {
+			ptask = &task_queue[i];
+			break;
+		}
+	}
+	return ptask;
 }
 
 int assign_tasks(zmq::context_t &context, ClientMap &clients,
@@ -58,11 +60,11 @@ int assign_tasks(zmq::context_t &context, ClientMap &clients,
 	task_assigner.bind("tcp://*:5560");
 
 	int workload = 0;
-	std::vector<Task>::iterator it = task_queue.begin();
-	while (it != task_queue.end()) {//TODO : simulation is finished
+	Task *undo_task_pointer;
+	while (true) {//TODO : simulation is finished
 		// get a undo task
-		it = get_undo_task(task_queue);
-		if (it == task_queue.end()) break;
+		undo_task_pointer = get_undo_task1(task_queue);
+		if (!undo_task_pointer) break; // all task is 
 
 		// TODO : a_free_worker = get_free_worker(workers queue)
 		string reply = s_recv(task_assigner);
@@ -78,12 +80,12 @@ int assign_tasks(zmq::context_t &context, ClientMap &clients,
 		}
 
 		// TODO : assign_task_to(a_free_worker, a_undo_task)
-		clients[client_id].set_task(*it);//update clients
-		workload = it->get_id();
+		clients[client_id].set_task(*undo_task_pointer);//update clients
+		workload = undo_task_pointer->get_id();
 		s_send(task_assigner, std::to_string(workload));
-		it->set_compute_status(Task::kInComputing);
+		undo_task_pointer->set_compute_status(Task::kInComputing);
 		clients[client_id].set_node_status(Client::kInComputing);
-		cout << "Task[" << it->get_id() << "] is assigned to client["
+		cout << "Task[" << undo_task_pointer->get_id() << "] is assigned to client["
 			<< client_id << "]" << endl;
 	}// end of while
 
@@ -94,18 +96,18 @@ int assign_tasks(zmq::context_t &context, ClientMap &clients,
 
 void mark_breakdown_client(ClientMap &clients)
 {
-	ClientMap::iterator iter;
-	//Client a_client;
+	int client_size = clients.size();
 	//for (iter = clients.begin(); iter != clients.end(); iter++) {
-	//	 a_client = iter->second;
-		if (a_client.is_expiry() && !a_client.is_breakdown()) {//TODO : 有问题
-			a_client.set_breakdown();
-			if (a_client.get_task()) {
-				a_client.get_task()->set_compute_status(Task::kNotStart);
-				cout << "Reset task[" << a_client.get_task()->get_id() 
+	for (int i = 1; i <= client_size;i++) {
+		//clients[i] = clients[i];
+		if (clients[i].is_expiry() && !clients[i].is_breakdown()) {//TODO : 有问题
+			clients[i].set_breakdown();
+			if (clients[i].get_task()) {
+				clients[i].get_task()->set_compute_status(Task::kNotStart);
+				cout << "Reset task[" << clients[i].get_task()->get_id() 
 					 <<"] status to not start" << endl;
 			}
-			cout << "Client[" << a_client.get_node_id() << "] is breakdown!" << endl;
+			cout << "Client[" << clients[i].get_node_id() << "] is breakdown!" << endl;
 		}
 	}
 }
