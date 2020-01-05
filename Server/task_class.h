@@ -3,7 +3,7 @@
 
 class Task
 {
-public:
+private:
 	enum ComputeStatus { kNotStart = 0, kInComputing, kFinished };
 	enum   StoreStatus { kNotSave = 0, kSaved };
 
@@ -18,7 +18,15 @@ public:
 	void set_compute_status(ComputeStatus status);
 	void set_store_status(StoreStatus status);
 
+	void set_task_not_start();
+
+	void set_task_in_computing();
+
+	void set_task_finished();
+
 	bool is_not_start();
+
+	bool is_in_computing();
 
 private:
 	void set_id(unsigned int id);

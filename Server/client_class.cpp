@@ -3,7 +3,11 @@
 #include "client_class.h"
 
 // constructor
-Client::Client() : node_id_(0), node_status_(kFree), ptask_(nullptr) {}
+Client::Client() : node_id_(0), node_status_(kFree), ptask_(nullptr) 
+{
+	//nothing
+}
+
 Client::Client(unsigned int id) : node_id_(id), node_status_(kFree), 
 								  ptask_(nullptr)
 {
@@ -23,6 +27,9 @@ void Client::set_task(Task *ptask) { ptask_ = ptask; }
 void Client::set_heartbeat(int64_t heartbeat) { heartbeat_ = heartbeat; }
 
 void Client::set_breakdown() { node_status_ = kBreakdown; }
+void Client::set_status_free() { node_status_ = kFree; }
+void Client::set_in_computing() { node_status_ = kInComputing; }
+
 bool Client::is_breakdown() { return kBreakdown == node_status_; }
 
 bool Client::is_expiry()

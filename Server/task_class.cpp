@@ -27,4 +27,9 @@ void Task::set_id(unsigned int id) { id_ = id; }
 void Task::set_compute_status(ComputeStatus status) { compute_status_ = status; }
 void Task::set_store_status(StoreStatus status) { store_status_ = status; }
 
+void Task::set_task_not_start() { compute_status_ = kNotStart; }
+void Task::set_task_in_computing() { compute_status_ = kInComputing; }
+void Task::set_task_finished() { compute_status_ = kFinished; }
+
 bool Task::is_not_start() { return kNotStart == compute_status_; }
+bool Task::is_in_computing() { return kInComputing == compute_status_; }

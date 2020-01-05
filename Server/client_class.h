@@ -24,6 +24,10 @@ public:
 	void set_heartbeat(int64_t heartbeat);
 	void set_breakdown();
 
+	void set_status_free();
+
+	void set_in_computing();
+
 	bool is_expiry();
 	bool is_breakdown();
 

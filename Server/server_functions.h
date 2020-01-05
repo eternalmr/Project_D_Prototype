@@ -19,8 +19,6 @@ Task* get_undo_task(std::vector<Task> &task_queue);
 int assign_tasks(zmq::context_t &context, ClientMap &clients, std::vector<Task> &task_queue);
 int collect_result(zmq::context_t &context);
 
-//用delim指定的正则表达式将字符串in分割，返回分割后的字符串数组
-//delim 分割字符串的正则表达式
 std::vector<string> split_string(const string& in, const string& delim);
 
 std::tuple<int, string> decode_signal(string &raw_signal);
