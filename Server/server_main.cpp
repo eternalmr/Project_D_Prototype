@@ -24,8 +24,8 @@ int main()
 	// initialize client queue
 	int max_client_num = 2;
 	ClientMap clients;
-	for (int i = 1; i <= max_client_num; ++i) {
-		clients[i] = Client(i);
+	for (int i = 0; i < max_client_num; ++i) {
+		clients.push_back(Client(i + 1));
 		if (clients[i].get_task() == nullptr) {
 			cout << "Client[" << i << "] don't get task yet" << endl;
 		}

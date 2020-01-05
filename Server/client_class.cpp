@@ -19,7 +19,7 @@ int64_t Client::get_heartbeat() const { return heartbeat_; }
 // set functions
 void Client::set_node_id(unsigned int id) { node_id_ = id; }
 void Client::set_node_status(NodeStatus status) { node_status_ = status; }
-void Client::set_task(Task task) { ptask_ = &task; }
+void Client::set_task(Task *ptask) { ptask_ = ptask; }
 void Client::set_heartbeat(int64_t heartbeat) { heartbeat_ = heartbeat; }
 
 void Client::set_breakdown() { node_status_ = kBreakdown; }

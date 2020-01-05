@@ -41,7 +41,7 @@ void update_client_heartbeat(Client &a_client)
 	//	 << a_client.get_heartbeat() << endl;
 }
 
-Task* get_undo_task1(std::vector<Task> &task_queue)
+Task* get_undo_task(std::vector<Task> &task_queue)
 {
 	Task *ptask = nullptr;
 	for (int i = 0; i < task_queue.size(); i++) {
@@ -59,20 +59,36 @@ int assign_tasks(zmq::context_t &context, ClientMap &clients,
 	zmq::socket_t task_assigner(context, ZMQ_REP);
 	task_assigner.bind("tcp://*:5560");
 
+	// check tasks and clients status
+
 	int workload = 0;
 	Task *undo_task_pointer;
 	while (true) {//TODO : simulation is finished
+		// update tasks and clients status
+		for (int i = 0; i < clients.size(); i++) {
+			//clients[i] = clients[i];
+			if (clients[i].is_expiry() && !clients[i].is_breakdown()) {//TODO : 有问题
+				clients[i].set_breakdown();
+				if (clients[i].get_task()) {//
+					clients[i].get_task()->set_compute_status(Task::kNotStart);
+					cout << "Reset task[" << clients[i].get_task()->get_id()
+						<< "] status to not start" << endl;
+				}
+				cout << "Client[" << clients[i].get_node_id() << "] is breakdown!" << endl;
+			}
+		}
+
 		// get a undo task
-		undo_task_pointer = get_undo_task1(task_queue);
-		if (!undo_task_pointer) break; // all task is 
+		undo_task_pointer = get_undo_task(task_queue);
+		if (!undo_task_pointer) break; // all task is completed and stored, than break
 
 		// TODO : a_free_worker = get_free_worker(workers queue)
-		string reply = s_recv(task_assigner);
+		string reply = s_recv(task_assigner);//reply client id
 		uint32_t client_id = stoi(reply);
-		clients[client_id].set_node_status(Client::kFree);
+		clients[client_id-1].set_node_status(Client::kFree);
 		cout << "Receive request from client[" << reply << "]" << endl;
 
-		Task* ptask = clients[client_id].get_task();
+		Task* ptask = clients[client_id-1].get_task();
 		if (ptask != nullptr && (ptask->get_compute_status() == Task::kInComputing)) {
 			ptask->set_compute_status(Task::kFinished);
 			cout << "Task[" << ptask->get_id() << "] is accomplished by client["
@@ -80,11 +96,11 @@ int assign_tasks(zmq::context_t &context, ClientMap &clients,
 		}
 
 		// TODO : assign_task_to(a_free_worker, a_undo_task)
-		clients[client_id].set_task(*undo_task_pointer);//update clients
+		clients[client_id-1].set_task(undo_task_pointer);//update clients
 		workload = undo_task_pointer->get_id();
 		s_send(task_assigner, std::to_string(workload));
 		undo_task_pointer->set_compute_status(Task::kInComputing);
-		clients[client_id].set_node_status(Client::kInComputing);
+		clients[client_id-1].set_node_status(Client::kInComputing);
 		cout << "Task[" << undo_task_pointer->get_id() << "] is assigned to client["
 			<< client_id << "]" << endl;
 	}// end of while
@@ -98,7 +114,7 @@ void mark_breakdown_client(ClientMap &clients)
 {
 	int client_size = clients.size();
 	//for (iter = clients.begin(); iter != clients.end(); iter++) {
-	for (int i = 1; i <= client_size;i++) {
+	for (int i = 0; i < client_size;i++) {
 		//clients[i] = clients[i];
 		if (clients[i].is_expiry() && !clients[i].is_breakdown()) {//TODO : 有问题
 			clients[i].set_breakdown();
@@ -123,7 +139,6 @@ void receive_heartbeat(zmq::context_t &context, ClientMap &clients)
 	while (true) {
 		auto raw_signal = s_recv(heartbeat_receiver);
 		std::tie(id, heartbeat_signal) = decode_signal(raw_signal);
-		update_client_heartbeat(clients[id]);
-		mark_breakdown_client(clients);
+		update_client_heartbeat(clients[id-1]);
 	}
 }

@@ -20,7 +20,7 @@ public:
 
 	void set_node_id(unsigned int id);
 	void set_node_status(NodeStatus status);
-	void set_task(Task task);
+	void set_task(Task *ptask);
 	void set_heartbeat(int64_t heartbeat);
 	void set_breakdown();
 
