@@ -1,6 +1,8 @@
 #pragma once
 #pragma warning(disable:4996)
 
+typedef unsigned int uint32_t;
+
 class Task
 {
 private:
@@ -9,7 +11,7 @@ private:
 
 public:
 	Task();
-	Task(unsigned int id);
+	Task(uint32_t id);
 	int get_id() const;
 
 	ComputeStatus get_compute_status() const;
@@ -19,17 +21,14 @@ public:
 	void set_store_status(StoreStatus status);
 
 	void set_task_not_start();
-
 	void set_task_in_computing();
-
 	void set_task_finished();
 
 	bool is_not_start();
-
 	bool is_in_computing();
 
 private:
-	void set_id(unsigned int id);
+	void set_id(uint32_t id);
 
 private:
 	unsigned int id_;

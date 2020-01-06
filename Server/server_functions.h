@@ -16,7 +16,8 @@ using std::string;
 typedef std::vector<Client> ClientMap;
 
 Task* get_undo_task(std::vector<Task> &task_queue);
-int assign_tasks(zmq::context_t &context, ClientMap &clients, std::vector<Task> &task_queue);
+int assign_tasks(zmq::context_t &context, ClientMap &clients, 
+				 std::vector<Task> &task_queue);
 int collect_result(zmq::context_t &context);
 
 std::vector<string> split_string(const string& in, const string& delim);
