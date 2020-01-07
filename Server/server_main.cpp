@@ -15,14 +15,14 @@ int main()
 	control_sender.bind("tcp://*:5555");
 
 	// initialize task queue
-	int task_num = 5;
+	int task_num = 20;
 	std::vector<Task> task_queue;
 	for (int i = 0; i < task_num; ++i) {
 		task_queue.push_back(Task(i+1));
 	}
 
 	// initialize client queue
-	int max_client_num = 2;
+	int max_client_num = 4;
 	ClientMap clients;
 	for (int i = 0; i < max_client_num; ++i) {
 		clients.push_back(Client(i + 1));
