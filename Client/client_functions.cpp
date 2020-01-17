@@ -89,7 +89,7 @@ int simulation(int input)
 		}
 
 		result++;
-		Sleep(1000);
+		Sleep(1000);// sleep 1000 millisecond
 		cout << "Result: " << result << endl;
 
 		if (has_reached_endpoint(input, result)) {
