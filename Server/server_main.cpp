@@ -26,9 +26,6 @@ int main()
 	ClientMap clients;
 	for (int i = 0; i < max_client_num; ++i) {
 		clients.push_back(Client(i + 1));
-		if (clients[i].get_task() == nullptr) {
-			cout << "Client[" << i << "] don't get task yet" << endl;
-		}
 	}
 
 	// start task, heartbeat and result threads 

@@ -1,7 +1,6 @@
 #pragma warning(disable:4996)
 
 #include "server_functions.h"
-#include <algorithm>
 
 int collect_result(zmq::context_t &context)
 {
@@ -106,12 +105,12 @@ void mark_breakdown_client(ClientMap &clients)
 	for (int i = 0; i < clients.size(); i++) {
 		if (clients[i].is_expiry() && !clients[i].is_breakdown()) {//TODO : 有问题
 			clients[i].set_breakdown();
+			cout << "Client[" << clients[i].get_node_id() << "] is breakdown!" << endl;
 			if (clients[i].get_task()) {
 				clients[i].get_task()->set_task_not_start();
-				cout << "Reset task[" << clients[i].get_task()->get_id() 
-					 <<"] status to not start" << endl;
+				cout << "Reset task[" << clients[i].get_task()->get_id()
+					<< "] status to not start" << endl;
 			}
-			cout << "Client[" << clients[i].get_node_id() << "] is breakdown!" << endl;
 		}
 	}
 }
