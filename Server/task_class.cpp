@@ -10,7 +10,7 @@ Task::Task()
 	set_store_status(kNotSave);
 }
 
-Task::Task(unsigned int id)
+Task::Task(uint32_t id)
 {
 	set_id(id);
 	set_compute_status(kNotStart);
@@ -23,7 +23,7 @@ Task::ComputeStatus Task::get_compute_status() const { return compute_status_; }
 Task::StoreStatus Task::get_store_status() const { return store_status_; }
 
 // set functions
-void Task::set_id(unsigned int id) { id_ = id; }
+void Task::set_id(uint32_t id) { id_ = id; }
 void Task::set_compute_status(ComputeStatus status) { compute_status_ = status; }
 void Task::set_store_status(StoreStatus status) { store_status_ = status; }
 

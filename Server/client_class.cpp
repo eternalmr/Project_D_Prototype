@@ -34,7 +34,7 @@ bool Client::is_breakdown() { return kBreakdown == node_status_; }
 
 bool Client::is_expiry()
 {
-	const int HEARTBEAT_TIMEOUT = 20000; //millisecond
+	const int HEARTBEAT_TIMEOUT = 10000; //millisecond
 	return (s_clock() - get_heartbeat() > HEARTBEAT_TIMEOUT); 
 }
 
